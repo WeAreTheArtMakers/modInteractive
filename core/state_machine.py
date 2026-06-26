@@ -216,10 +216,12 @@ class StateMachine:
             )
         )
 
-        # Call optional callback
+        # Call optional callback - safely handle both coroutine and regular functions
         if self._on_state_change:
             try:
-                await self._on_state_change(old_state, new_state)
+                result = self._on_state_change(old_state, new_state)
+                if result is not None:
+                    await result
             except Exception as e:
                 logger.error(f"State change callback error: {e}")
 

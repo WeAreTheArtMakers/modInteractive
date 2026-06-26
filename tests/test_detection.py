@@ -4,6 +4,7 @@ import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import cv2
 import numpy as np
 from core.detection_service import DetectionService
 
@@ -54,8 +55,11 @@ class TestDetectionService(unittest.IsolatedAsyncioTestCase):
         # Motion should be detected
         self.assertGreater(score3, self.service._motion_sensitivity)
 
-        # Create frame with no motion again
+        # Create frame with no motion again - same as frame2
         frame4 = np.ones((100, 100, 3), dtype=np.uint8) * 128
+        # Need to reset previous_gray to match frame4
+        self.service._previous_gray = cv2.cvtColor(frame4, cv2.COLOR_BGR2GRAY)
+        self.service._previous_gray = cv2.GaussianBlur(self.service._previous_gray, (21, 21), 0)
         score4 = self.service._detect_motion(frame4)
         self.assertLess(score4, self.service._motion_sensitivity)
 
@@ -139,7 +143,7 @@ class TestDetectionService(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.service._person_present)
         self.assertEqual(self.service._consecutive_detections, 0)
 
-    @patch("core.detection_service.YOLO")
+    @patch("ultralytics.YOLO")
     async def test_load_model_success(self, mock_yolo):
         """Test successful YOLO model loading."""
         mock_yolo_instance = MagicMock()
@@ -152,7 +156,7 @@ class TestDetectionService(unittest.IsolatedAsyncioTestCase):
     async def test_load_model_ultralytics_not_available(self):
         """Test model loading when ultralytics is not installed."""
         # Simulate ImportError by temporarily removing YOLO from namespace
-        with patch("core.detection_service.YOLO", side_effect=ImportError("No module")):
+        with patch("ultralytics.YOLO", side_effect=ImportError("No module")):
             result = await self.service.load_model()
             self.assertFalse(result)
             self.assertIsNone(self.service._model)
