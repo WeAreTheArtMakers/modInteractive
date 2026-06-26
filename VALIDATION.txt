@@ -1,0 +1,14 @@
+PY OK: main.py
+PY OK: app.py
+PY OK: admin/server.py
+PY OK: core/config.py
+PY OK: core/camera.py
+PY OK: core/detector.py
+PY OK: core/player.py
+PY OK: core/logger.py
+PY OK: core/healthcheck.py
+SHELL OK: install.sh 
+SHELL OK: uninstall.sh 
+JSON OK: config.json
+JS OK: admin/static/app.js 
+YAML OK: .github/workflows/ci.yml

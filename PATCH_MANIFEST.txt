@@ -1,0 +1,36 @@
+modInteractive Production Patch
+
+Bu paket, Raspberry Pi 5 üzerinde kamera hareket algılama ile HDMI tam ekran video oynatma mimarisi için tek ve uyumlu dosya setidir.
+
+Eski dosyaların üzerine doğrudan kopyalanacak dosyalar:
+- .github/workflows/ci.yml
+- main.py
+- app.py
+- config.json
+- install.sh
+- uninstall.sh
+- requirements.txt
+- core/__init__.py
+- core/config.py
+- core/camera.py
+- core/detector.py
+- core/player.py
+- core/logger.py
+- core/healthcheck.py
+- admin/__init__.py
+- admin/server.py
+- admin/templates/index.html
+- admin/static/app.js
+- admin/static/style.css
+- systemd/modinteractive.service
+- README.md
+- videos/README.md
+
+Kurulumdan önce varsayılan video:
+videos/selamlama.mp4
+
+Kurulumdan sonra varsayılan video:
+ /opt/modInteractive/videos/selamlama.mp4
+
+requirements.txt sadece Flask içerir. OpenCV ve NumPy Raspberry Pi üzerinde apt ile kurulur:
+flask>=2.3.0
