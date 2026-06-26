@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>modInteractive - AI Kiosk System</title>
+    <meta name="description" content="Raspberry Pi 5 based intelligent kiosk system. AI-powered person detection, video playback, and interactive display.">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="nav">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <span class="logo-icon">◆</span>
+                <span class="logo-text">mod<span class="highlight">Interactive</span></span>
+            </div>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#specs">Tech Specs</a>
+                <a href="#install">Install</a>
+                <a href="https://github.com/WeAreTheArtMakers/modInteractive" target="_blank" class="nav-cta">GitHub →</a>
+            </div>
+            <button class="mobile-menu" onclick="toggleMenu()">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-bg"></div>
+        <div class="hero-content">
+            <div class="hero-badge">v2.0.0 · Production Ready</div>
+            <h1 class="hero-title">
+                Turn Any Screen Into<br>
+                an <span class="gradient-text">Interactive Kiosk</span>
+            </h1>
+            <p class="hero-subtitle">
+                Raspberry Pi 5 powered AI kiosk system. Detects people via USB camera,
+                plays welcome videos with smooth fade transitions. Plug-and-play.
+            </p>
+            <div class="hero-actions">
+                <a href="#install" class="btn btn-primary">
+                    <span class="btn-icon">⚡</span>
+                    Get Started Now
+                </a>
+                <a href="https://github.com/WeAreTheArtMakers/modInteractive" target="_blank" class="btn btn-secondary">
+                    <span class="btn-icon">⟨⟩</span>
+                    Source Code
+                </a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <span class="stat-value">8</span>
+                    <span class="stat-label">Commits</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">101</span>
+                    <span class="stat-label">Tests Passed</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">0</span>
+                    <span class="stat-label">Errors</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">24/7</span>
+                    <span class="stat-label">Uptime</span>
+                </div>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="floating-card card-1">
+                <span class="card-icon">📷</span>
+                <span>Camera<br>Detection</span>
+            </div>
+            <div class="floating-card card-2">
+                <span class="card-icon">🧠</span>
+                <span>AI<br>YOLOv8</span>
+            </div>
+            <div class="floating-card card-3">
+                <span class="card-icon">🎬</span>
+                <span>Video<br>Playback</span>
+            </div>
+            <div class="hero-circle"></div>
+        </div>
+    </section>
+
+    <!-- Use Case -->
+    <section class="use-case">
+        <div class="container">
+            <div class="use-case-flow">
+                <div class="flow-step">
+                    <div class="step-number">1</div>
+                    <div class="step-icon">🚶</div>
+                    <h3>Person Enters</h3>
+                    <p>Customer walks into the space</p>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step">
+                    <div class="step-number">2</div>
+                    <div class="step-icon">📡</div>
+                    <h3>AI Detects</h3>
+                    <p>YOLOv8 + motion detection</p>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step">
+                    <div class="step-number">3</div>
+                    <div class="step-icon">▶️</div>
+                    <h3>Plays Video</h3>
+                    <p>Fade-in welcome message</p>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step">
+                    <div class="step-number">4</div>
+                    <div class="step-icon">⏳</div>
+                    <h3>Cooldown</h3>
+                    <p>8s wait, then back to idle</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section class="features" id="features">
+        <div class="container">
+            <h2 class="section-title">Everything You Need</h2>
+            <p class="section-subtitle">Production-grade kiosk system optimized for Raspberry Pi 5</p>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🧠</div>
+                    <h3>AI Detection Engine</h3>
+                    <p>Hybrid YOLOv8n + motion detection with configurable confidence threshold. Person confirmed in under 200ms.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎬</div>
+                    <h3>Smart Video Playback</h3>
+                    <p>mpv with hardware acceleration. Fade-in/out transitions. Supports any video format. 1080p @ 30fps.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Finite State Machine</h3>
+                    <p>Strict 10-state FSM. No race conditions. No double triggers. Event-driven architecture.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Modern UI Dashboard</h3>
+                    <p>PySide6 touch-friendly interface. Dark/Light theme. Live camera preview. Real-time logs.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔌</div>
+                    <h3>Plugin System</h3>
+                    <p>Extend with custom detection engines, playback backends, or UI modules. Drop-in Python plugins.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>Watchdog & Recovery</h3>
+                    <p>Auto-restart on freeze (10s timeout). Camera auto-reconnect. systemd service with fail2ban.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Specs -->
+    <section class="specs" id="specs">
+        <div class="container">
+            <h2 class="section-title">Technical Specifications</h2>
+            <div class="specs-grid">
+                <div class="spec-card">
+                    <h3>Hardware</h3>
+                    <ul>
+                        <li><strong>Board:</strong> Raspberry Pi 5 (8GB)</li>
+                        <li><strong>Camera:</strong> USB Webcam (any)</li>
+                        <li><strong>Display:</strong> HDMI (1080p+)</li>
+                        <li><strong>Storage:</strong> 32GB+ SD Card</li>
+                    </ul>
+                </div>
+                <div class="spec-card">
+                    <h3>Software</h3>
+                    <ul>
+                        <li><strong>OS:</strong> PiOS Bookworm 64-bit</li>
+                        <li><strong>Python:</strong> 3.11+</li>
+                        <li><strong>UI:</strong> PySide6 (Qt6)</li>
+                        <li><strong>AI:</strong> YOLOv8n + OpenCV</li>
+                    </ul>
+                </div>
+                <div class="spec-card">
+                    <h3>Performance</h3>
+                    <ul>
+                        <li><strong>Startup:</strong> < 15 seconds</li>
+                        <li><strong>Detection:</strong> < 200ms latency</li>
+                        <li><strong>Idle CPU:</strong> < 15%</li>
+                        <li><strong>Video:</strong> 1080p @ 30 FPS</li>
+                    </ul>
+                </div>
+                <div class="spec-card">
+                    <h3>Detection</h3>
+                    <ul>
+                        <li><strong>Mode:</strong> Hybrid (YOLO + Motion)</li>
+                        <li><strong>Confidence:</strong> 55% threshold</li>
+                        <li><strong>Cooldown:</strong> 8 seconds</li>
+                        <li><strong>Frame Skip:</strong> Every 3rd frame</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Install -->
+    <section class="install" id="install">
+        <div class="container">
+            <h2 class="section-title">Install in 60 Seconds</h2>
+            <p class="section-subtitle">No manual configuration required. Just plug and play.</p>
+            <div class="install-steps">
+                <div class="install-step">
+                    <div class="step-header">
+                        <span class="step-badge">1</span>
+                        <h3>Clone the Repository</h3>
+                    </div>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyCode(this)" aria-label="Copy command">📋</button>
+                        <code>git clone https://github.com/WeAreTheArtMakers/modInteractive.git<br>cd modInteractive</code>
+                    </div>
+                </div>
+                <div class="install-step">
+                    <div class="step-header">
+                        <span class="step-badge">2</span>
+                        <h3>Connect Hardware</h3>
+                    </div>
+                    <p class="step-desc">Plug your USB webcam into the Pi 5. Connect HDMI display. Insert power.</p>
+                </div>
+                <div class="install-step">
+                    <div class="step-header">
+                        <span class="step-badge">3</span>
+                        <h3>Run Installer</h3>
+                    </div>
+                    <div class="code-block">
+                        <button class="copy-btn" onclick="copyCode(this)" aria-label="Copy command">📋</button>
+                        <code>sudo ./install.sh</code>
+                    </div>
+                    <p class="step-desc">Installs dependencies, downloads YOLOv8 model, sets up systemd service, and starts the kiosk.</p>
+                </div>
+            </div>
+            <div class="install-note">
+                <span class="note-icon">💡</span>
+                <p>That's it! Your kiosk is now running. Walk in front of the camera to test the welcome video.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta">
+        <div class="container">
+            <h2>Ready to Build Your Kiosk?</h2>
+            <p>Open source. MIT licensed. Community driven.</p>
+            <a href="https://github.com/WeAreTheArtMakers/modInteractive" target="_blank" class="btn btn-primary btn-large">
+                <span class="btn-icon">⟨⟩</span>
+                View on GitHub
+            </a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-icon">◆</span>
+                    <span class="logo-text">mod<span class="highlight">Interactive</span></span>
+                    <p class="footer-desc">AI-Powered Kiosk System for Raspberry Pi 5</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Links</h4>
+                    <a href="https://github.com/WeAreTheArtMakers/modInteractive" target="_blank">GitHub</a>
+                    <a href="#features">Features</a>
+                    <a href="#specs">Tech Specs</a>
+                    <a href="#install">Installation</a>
+                </div>
+                <div class="footer-links">
+                    <h4>Tech Stack</h4>
+                    <span>Python 3.11</span>
+                    <span>PySide6</span>
+                    <span>YOLOv8n</span>
+                    <span>OpenCV · mpv</span>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>
+                    Built with
+                    <span class="heart">❤️</span>
+                    by
+                    <a href="https://WeAreTheArtMakers.com" target="_blank" class="footer-signature">WATAM</a>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
