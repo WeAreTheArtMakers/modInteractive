@@ -1205,6 +1205,19 @@ class VideoManagerTab(QWidget):
         mode_layout.addStretch()
         layout.addWidget(mode_group)
 
+        # ── Video Preview ──
+        preview_group = QGroupBox("Video Preview")
+        preview_layout = QVBoxLayout(preview_group)
+        self._preview_label = QLabel("🎬 Video Preview\n\nSelect a video to preview")
+        self._preview_label.setAlignment(Qt.AlignCenter)
+        self._preview_label.setMinimumSize(480, 270)
+        self._preview_label.setStyleSheet(
+            "background-color: #1A1A2E; border: 2px solid #3A3A4F; "
+            "border-radius: 8px; color: #666666; font-size: 14px;"
+        )
+        preview_layout.addWidget(self._preview_label)
+        layout.addWidget(preview_group)
+
         # ── Playback Settings ──
         settings_group = QGroupBox("Video Settings")
         settings_layout = QFormLayout(settings_group)
@@ -1246,6 +1259,24 @@ class VideoManagerTab(QWidget):
             lambda v: volume_val.setText(f"{v}%")
         )
         settings_layout.addRow("", volume_val)
+
+        # ── Video Rotation ──
+        rotation_label = QLabel("Rotation:")
+        settings_layout.addRow(rotation_label)
+
+        rotation_btn_layout = QHBoxLayout()
+        rotation_btn_layout.setSpacing(8)
+        self._rotation_btns = {}
+        for angle in [0, 90, 180, 270]:
+            btn = QPushButton(f"{angle}°")
+            btn.setCheckable(True)
+            btn.setMinimumSize(60, 40)
+            btn.setChecked(angle == 0)
+            self._rotation_btns[angle] = btn
+            rotation_btn_layout.addWidget(btn)
+
+        rotation_btn_layout.addStretch()
+        settings_layout.addRow("", rotation_btn_layout)
 
         layout.addWidget(settings_group)
 
