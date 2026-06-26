@@ -1,1 +1,0 @@
-"""Core services for modInteractive motion-triggered video display system."""

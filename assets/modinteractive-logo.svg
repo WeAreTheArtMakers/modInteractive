@@ -1,0 +1,14 @@
+<svg width="1200" height="360" viewBox="0 0 1200 360" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">modInteractive Logo</title>
+  <desc id="desc">Motion triggered HDMI video display logo with camera, play icon and signal arcs.</desc>
+  <rect width="1200" height="360" rx="42" fill="#101827"/>
+  <circle cx="190" cy="180" r="102" fill="#16213E" stroke="#00D4AA" stroke-width="10"/>
+  <circle cx="190" cy="180" r="52" fill="#0D1117" stroke="#00D4AA" stroke-width="8"/>
+  <circle cx="190" cy="180" r="22" fill="#00D4AA"/>
+  <path d="M307 134C329 146 346 162 359 180C346 198 329 214 307 226" stroke="#00D4AA" stroke-width="12" stroke-linecap="round"/>
+  <path d="M337 96C376 118 406 147 427 180C406 213 376 242 337 264" stroke="#00D4AA" stroke-width="10" stroke-linecap="round" opacity="0.72"/>
+  <path d="M512 112L512 248L625 180L512 112Z" fill="#00D4AA"/>
+  <text x="690" y="158" fill="#E5E7EB" font-size="72" font-family="Arial, Helvetica, sans-serif" font-weight="800">modInteractive</text>
+  <text x="694" y="214" fill="#9CA3AF" font-size="30" font-family="Arial, Helvetica, sans-serif" font-weight="500">Motion Triggered HDMI Video Display</text>
+  <text x="696" y="258" fill="#00D4AA" font-size="24" font-family="Arial, Helvetica, sans-serif" font-weight="700">Raspberry Pi 5 • Camera • Fullscreen Video</text>
+</svg>
