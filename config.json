@@ -1,64 +1,18 @@
 {
-  "system": {
-    "name": "modInteractive",
-    "version": "2.0.0",
-    "log_level": "INFO",
-    "log_retention_days": 7,
-    "auto_start": true,
-    "watchdog_timeout": 10
-  },
-  "camera": {
-    "device_id": 0,
-    "resolution": {
-      "width": 640,
-      "height": 480
-    },
-    "fps": 15,
-    "brightness": 0,
-    "contrast": 0,
-    "auto_reconnect": true,
-    "reconnect_interval": 3
-  },
-  "detection": {
-    "mode": "hybrid",
-    "confidence_threshold": 0.55,
-    "cooldown_seconds": 8,
-    "frame_skip": 3,
-    "motion_sensitivity": 0.03,
-    "enable_roi": false,
-    "roi": {
-      "x": 0,
-      "y": 0,
-      "width": 1,
-      "height": 1
-    },
-    "model_path": "models/yolov8n.pt",
-    "consecutive_frames": 2
-  },
-  "video": {
-    "fade_in_duration": 0.8,
-    "fade_out_duration": 0.8,
-    "volume": 90,
-    "fullscreen": true,
-    "playback_mode": "single",
-    "loop_videos": false,
-    "playlist": [
-      "videos/selamlama.mp4"
-    ]
-  },
-  "ui": {
-    "theme": "dark",
-    "language": "en",
-    "touchscreen_mode": true,
-    "show_preview": false,
-    "headless": false
-  },
-  "plugins": {
-    "enabled": [],
-    "paths": [
-      "plugins/detection",
-      "plugins/playback",
-      "plugins/ui"
-    ]
-  }
+  "video_path": "videos/selamlama.mp4",
+  "camera_index": 0,
+  "camera_width": 640,
+  "camera_height": 480,
+  "camera_fps": 15,
+  "detection_enabled": true,
+  "detection_mode": "motion",
+  "detection_confidence": 0.5,
+  "motion_sensitivity": 500,
+  "cooldown_seconds": 10,
+  "fullscreen": true,
+  "log_level": "INFO",
+  "log_max_bytes": 5242880,
+  "log_backup_count": 3,
+  "player": "mpv",
+  "player_volume": 90
 }

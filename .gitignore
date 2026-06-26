@@ -1,31 +1,47 @@
+# modInteractive .gitignore
+
 # Python
 __pycache__/
 *.py[cod]
-*.egg-info/
-dist/
-build/
-*.egg
-.venv/
-venv/
+*$py.class
+*.so
+.Python
 env/
+venv/
+.venv/
+
+# Virtual Environment
+venv/
+
+# Logs
+logs/*.log
+logs/*.db
+logs/*.db-*
+
+# Videos (user adds their own)
+videos/*.mp4
+videos/*.avi
+videos/*.mkv
+videos/*.mov
+videos/*.webm
+
+# Models (downloaded at runtime)
+models/*.pt
+models/*.onnx
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
 
+# Config override (user-specific)
+config.local.json
+
 # Project specific
-logs/*.db
-logs/*.log
-models/*.pt
-
-# Assets (keep scripts)
-assets/scripts/
-
-# Keep sample videos
-!videos/*.mp4
+*.db

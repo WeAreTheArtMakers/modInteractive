@@ -1,10 +1,18 @@
-# Core - Pi5 Bookworm uyumlu (PySide6 6.4.x)
-PySide6>=6.4.0,<6.6.0
+# modInteractive - Interactive Kiosk System
+# Raspberry Pi 5 compatible dependencies
+#
+# Install: pip install -r requirements.txt
+#
+# NOTE: On Raspberry Pi, install system packages first:
+#   sudo apt update
+#   sudo apt install python3-pip python3-venv python3-opencv mpv
+#
+# opencv-python-headless is used instead of opencv-python
+# to avoid pulling in desktop GUI dependencies on headless systems.
+
 opencv-python-headless>=4.8.0
 numpy>=1.24.0
 
-# AI Detection - CPU only for Pi5
-ultralytics>=8.0.0
-
-# System
-psutil>=5.9.0
+# Optional: YOLO-based person detection
+# pip install ultralytics
+# ultralytics>=8.0.0

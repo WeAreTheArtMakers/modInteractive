@@ -1,360 +1,260 @@
 #!/usr/bin/env bash
+#===============================================================================
+# install.sh - modInteractive Kiosk System Installer
+#
+# This script installs modInteractive on a Raspberry Pi system.
+# It is idempotent: running it multiple times is safe.
+#
+# Usage:
+#   chmod +x install.sh
+#   sudo ./install.sh
+#
+# The script will:
+#   1. Install system dependencies (python3-venv, mpv, etc.)
+#   2. Create /opt/modInteractive directory structure
+#   3. Set up Python virtual environment
+#   4. Install Python dependencies
+#   5. Install systemd service
+#   6. (Optional) Start the service
+#===============================================================================
+
 set -euo pipefail
 
-# =============================================================================
-# modInteractive Installer
-# Installs the AI-Powered Kiosk System on Raspberry Pi 5
-# =============================================================================
-
-VERSION="2.0.0"
-INSTALL_DIR="/opt/modInteractive"
-SERVICE_NAME="modinteractive.service"
-SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}"
-VENV_DIR="${INSTALL_DIR}/venv"
-REQUIREMENTS_FILE="${INSTALL_DIR}/requirements.txt"
-CONFIG_FILE="${INSTALL_DIR}/config.json"
-MAIN_SCRIPT="${INSTALL_DIR}/main.py"
-MODEL_DIR="${INSTALL_DIR}/models"
-YOLO_MODEL="${MODEL_DIR}/yolov8n.pt"
-VIDEO_DIR="${INSTALL_DIR}/videos"
-EXAMPLE_VIDEO_DIR="${VIDEO_DIR}/examples"
-
-# Color output
+#===============================================================================
+# Color output helpers
+#===============================================================================
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-log_info()  { echo -e "${BLUE}[INFO]${NC}  $1"; }
-log_ok()   { echo -e "${GREEN}[OK]${NC}    $1"; }
-log_warn() { echo -e "${YELLOW}[WARN]${NC}  $1"; }
-log_err()  { echo -e "${RED}[ERROR]${NC} $1"; }
+info()    { echo -e "${BLUE}[INFO]${NC} $*"; }
+success() { echo -e "${GREEN}[OK]${NC} $*"; }
+warning() { echo -e "${YELLOW}[WARNING]${NC} $*"; }
+error()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 
-# ---------------------------------------------------------------------------
-# Pre-flight checks
-# ---------------------------------------------------------------------------
-check_root() {
-    if [[ $EUID -ne 0 ]]; then
-        log_err "This script must be run as root (use sudo)"
-        exit 1
-    fi
-    log_ok "Root privileges confirmed"
-}
+#===============================================================================
+# Configuration
+#===============================================================================
+INSTALL_DIR="/opt/modInteractive"
+VENV_DIR="${INSTALL_DIR}/venv"
+SERVICE_NAME="modinteractive"
+SERVICE_SRC="systemd/${SERVICE_NAME}.service"
+SERVICE_DST="/etc/systemd/system/${SERVICE_NAME}.service"
+REQUIREMENTS="requirements.txt"
+CONFIG_FILE="config.json"
+PYTHON="python3"
 
-check_raspberry_pi() {
-    if [[ ! -f /proc/device-tree/model ]]; then
-        log_warn "Not running on a Raspberry Pi (no /proc/device-tree/model)"
-        log_warn "Installation will continue, but hardware acceleration may not work."
-        return
-    fi
-    local model
-    model=$(tr -d '\0' < /proc/device-tree/model)
-    log_info "Detected: ${model}"
-}
+#===============================================================================
+# Root check
+#===============================================================================
+if [[ $EUID -ne 0 ]]; then
+    error "This script must be run as root (use sudo)."
+    exit 1
+fi
 
-check_os() {
-    if [[ -f /etc/os-release ]]; then
-        source /etc/os-release
-        log_info "OS: ${PRETTY_NAME:-${NAME} ${VERSION_ID}}"
-    else
-        log_warn "Could not detect OS version"
-    fi
-}
+echo ""
+echo "========================================"
+echo " modInteractive Kiosk System Installer"
+echo "========================================"
+echo ""
 
-# ---------------------------------------------------------------------------
-# System dependency installation
-# ---------------------------------------------------------------------------
-install_system_deps() {
-    log_info "Updating package lists..."
-    apt-get update -qq
+#===============================================================================
+# Determine the source directory
+#===============================================================================
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE_DIR="${SCRIPT_DIR}"
 
-    log_info "Installing system dependencies..."
-    apt-get install -y -qq \
-        mpv \
-        python3 \
-        python3-pip \
-        python3-venv \
-        python3-dev \
-        libgl1-mesa-dri \
-        libglib2.0-0 \
-        libsm6 \
-        libxext6 \
-        libxrender-dev \
-        libgomp1 \
-        cmake \
-        build-essential \
-        libatlas-base-dev \
-        git \
-        curl \
-        wget \
-        v4l-utils \
-    || {
-        log_err "Failed to install system dependencies"
-        exit 1
-    }
-    log_ok "System dependencies installed"
-}
+info "Source directory: ${SOURCE_DIR}"
+info "Install directory: ${INSTALL_DIR}"
+info "Virtual environment: ${VENV_DIR}"
+echo ""
 
-install_mpv_arm64() {
-    # Ensure mpv is available with hardware acceleration on Pi 5
-    if command -v mpv &>/dev/null; then
-        log_ok "mpv $(mpv --version | head -1)"
-    else
-        log_err "mpv installation failed"
-        exit 1
-    fi
-}
+#===============================================================================
+# Step 1: Install system dependencies
+#===============================================================================
+info "Step 1/7: Installing system dependencies..."
 
-# ---------------------------------------------------------------------------
-# Directory setup
-# ---------------------------------------------------------------------------
-create_directories() {
-    log_info "Creating installation directory: ${INSTALL_DIR}"
-    mkdir -p "${INSTALL_DIR}"
-    mkdir -p "${MODEL_DIR}"
-    mkdir -p "${VIDEO_DIR}"
-    mkdir -p "${EXAMPLE_VIDEO_DIR}"
-    mkdir -p "${INSTALL_DIR}/logs"
-    mkdir -p "${INSTALL_DIR}/assets/scripts"
-    mkdir -p "${INSTALL_DIR}/assets/themes"
-    mkdir -p "${INSTALL_DIR}/assets/icons"
-    mkdir -p "${INSTALL_DIR}/plugins/detection"
-    mkdir -p "${INSTALL_DIR}/plugins/playback"
-    mkdir -p "${INSTALL_DIR}/plugins/ui"
-    log_ok "Directories created"
-}
+apt-get update -qq
+apt-get install -y -qq \
+    "${PYTHON}" \
+    "${PYTHON}-venv" \
+    "${PYTHON}-pip" \
+    "${PYTHON}-opencv" \
+    mpv \
+    udisks2 \
+    dosfstools \
+    2>&1 | tail -5
 
-# ---------------------------------------------------------------------------
-# File copy
-# ---------------------------------------------------------------------------
-copy_files() {
-    local src_dir
-    src_dir="$(dirname "$0")"
+success "System dependencies installed"
+echo ""
 
-    log_info "Copying project files to ${INSTALL_DIR}..."
+#===============================================================================
+# Step 2: Create directory structure
+#===============================================================================
+info "Step 2/7: Creating directory structure..."
 
-    cp -r "${src_dir}/main.py"          "${INSTALL_DIR}/"
-    cp -r "${src_dir}/app.py"           "${INSTALL_DIR}/"
-    cp -r "${src_dir}/config.json"      "${INSTALL_DIR}/"
-    cp -r "${src_dir}/requirements.txt" "${INSTALL_DIR}/"
-    cp -r "${src_dir}/core"             "${INSTALL_DIR}/"
-    cp -r "${src_dir}/ui"               "${INSTALL_DIR}/"
-    cp -r "${src_dir}/assets"           "${INSTALL_DIR}/"
-    cp -r "${src_dir}/plugins"          "${INSTALL_DIR}/"
+mkdir -p "${INSTALL_DIR}"
+mkdir -p "${INSTALL_DIR}/logs"
+mkdir -p "${INSTALL_DIR}/videos"
+mkdir -p "${INSTALL_DIR}/core"
 
-    # Copy systemd service file
-    cp "${src_dir}/systemd/modinteractive.service" "${INSTALL_DIR}/"
+success "Directory structure created at ${INSTALL_DIR}"
+echo ""
 
-    log_ok "Project files copied"
-}
+#===============================================================================
+# Step 3: Copy application files
+#===============================================================================
+info "Step 3/7: Copying application files..."
 
-# ---------------------------------------------------------------------------
-# Python virtual environment setup
-# ---------------------------------------------------------------------------
-setup_venv() {
-    log_info "Creating Python virtual environment..."
+# Main application files
+cp -r "${SOURCE_DIR}/main.py"          "${INSTALL_DIR}/main.py"
+cp -r "${SOURCE_DIR}/app.py"           "${INSTALL_DIR}/app.py"
+cp -r "${SOURCE_DIR}/config.json"      "${INSTALL_DIR}/config.json"
+cp -r "${SOURCE_DIR}/requirements.txt" "${INSTALL_DIR}/requirements.txt"
 
-    python3 -m venv --system-site-packages "${VENV_DIR}"
+# Core modules
+cp -r "${SOURCE_DIR}/core/"*.py        "${INSTALL_DIR}/core/"
 
-    # Upgrade pip
-    "${VENV_DIR}/bin/pip" install --quiet --upgrade pip setuptools wheel
+# Video files (if any)
+if ls "${SOURCE_DIR}/videos/"*.mp4 1>/dev/null 2>&1; then
+    cp -r "${SOURCE_DIR}/videos/"*.mp4 "${INSTALL_DIR}/videos/"
+    success "Video files copied"
+else
+    warning "No video files found in videos/. Add videos to ${INSTALL_DIR}/videos/"
+fi
 
-    log_ok "Virtual environment created at ${VENV_DIR}"
-}
+# Set permissions
+chown -R pi:pi "${INSTALL_DIR}" 2>/dev/null || true
+chmod -R 755 "${INSTALL_DIR}"
 
-install_python_requirements() {
-    log_info "Installing Python requirements..."
-    log_info "This may take a while on a Raspberry Pi (especially PyTorch)..."
+success "Application files copied"
+echo ""
 
-    # Install dependencies that are easier via apt on Pi
-    pip_install() {
-        "${VENV_DIR}/bin/pip" install --quiet "$@" || {
-            log_warn "pip install failed for: $*"
-            log_warn "Retrying without cache..."
-            "${VENV_DIR}/bin/pip" install --quiet --no-cache-dir "$@" || {
-                log_err "Failed to install: $*"
-                log_err "Check the error above and install manually."
-            }
-        }
-    }
+#===============================================================================
+# Step 4: Create Python virtual environment
+#===============================================================================
+info "Step 4/7: Creating Python virtual environment..."
 
-    # Core ML dependencies (install numpy first)
-    pip_install numpy>=1.24.0
-    pip_install "opencv-python-headless>=4.8.0"
-    pip_install ultralytics>=8.0.0
-    pip_install PySide6>=6.5.0
-    pip_install psutil>=5.9.0
+if [[ -d "${VENV_DIR}" ]]; then
+    info "Virtual environment already exists, updating..."
+else
+    "${PYTHON}" -m venv "${VENV_DIR}"
+    success "Virtual environment created"
+fi
 
-    log_ok "Python requirements installed"
-}
+# Upgrade pip
+"${VENV_DIR}/bin/pip" install --upgrade pip --quiet
 
-# ---------------------------------------------------------------------------
-# YOLO model download
-# ---------------------------------------------------------------------------
-download_yolo_model() {
-    if [[ -f "${YOLO_MODEL}" ]]; then
-        log_info "YOLO model already exists at ${YOLO_MODEL}, skipping download"
-        return
-    fi
+success "Virtual environment ready at ${VENV_DIR}"
+echo ""
 
-    log_info "Downloading YOLOv8n model..."
-    "${VENV_DIR}/bin/python" -c "
-from ultralytics import YOLO
-model = YOLO('yolov8n.pt')
-model.save('${YOLO_MODEL}')
-print('YOLOv8n model downloaded successfully')
-" || {
-        log_warn "Failed to download via ultralytics, trying direct download..."
-        wget -q -O "${YOLO_MODEL}" "https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8n.pt" || {
-            log_err "Failed to download YOLO model"
-            log_err "You can download manually:"
-            log_err "  wget https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8n.pt -O ${YOLO_MODEL}"
-        }
-    }
+#===============================================================================
+# Step 5: Install Python dependencies
+#===============================================================================
+info "Step 5/7: Installing Python dependencies..."
 
-    if [[ -f "${YOLO_MODEL}" ]]; then
-        log_ok "YOLO model downloaded: ${YOLO_MODEL}"
-    fi
-}
+cd "${INSTALL_DIR}"
+"${VENV_DIR}/bin/pip" install -r "${REQUIREMENTS}" --quiet
 
-# ---------------------------------------------------------------------------
-# Example videos
-# ---------------------------------------------------------------------------
-create_example_videos() {
-    log_info "Creating example video directory: ${EXAMPLE_VIDEO_DIR}"
-    # Placeholder — users should copy their own .mp4 files here
-    cat > "${EXAMPLE_VIDEO_DIR}/README.txt" << 'VIDEOF'
-modInteractive Example Videos
-=============================
+success "Python dependencies installed"
+echo ""
 
-Place your MP4 video files in this directory to add them to the playlist.
+#===============================================================================
+# Step 6: Install systemd service
+#===============================================================================
+info "Step 6/7: Installing systemd service..."
 
-The system will pick videos from /opt/modInteractive/videos/ by default.
+# Copy service file
+if [[ -f "${SOURCE_DIR}/${SERVICE_SRC}" ]]; then
+    cp "${SOURCE_DIR}/${SERVICE_SRC}" "${SERVICE_DST}"
+    chmod 644 "${SERVICE_DST}"
 
-You can also copy videos to any path and configure the playlist in config.json.
+    # Update user/group in service file to current non-root user
+    REAL_USER="${SUDO_USER:-pi}"
+    REAL_GROUP=$(id -gn "${REAL_USER}" 2>/dev/null || echo "pi")
+    REAL_UID=$(id -u "${REAL_USER}" 2>/dev/null || echo "1000")
 
-Supported formats: MP4, AVI, MKV, MOV (via mpv)
-VIDEOF
-    log_ok "Example video directory ready (add .mp4 files to ${EXAMPLE_VIDEO_DIR})"
-}
+    sed -i "s/User=pi/User=${REAL_USER}/" "${SERVICE_DST}"
+    sed -i "s/Group=pi/Group=${REAL_GROUP}/" "${SERVICE_DST}"
+    sed -i "s|/run/user/1000|/run/user/${REAL_UID}|" "${SERVICE_DST}"
 
-# ---------------------------------------------------------------------------
-# Systemd service installation
-# ---------------------------------------------------------------------------
-install_systemd_service() {
-    log_info "Installing systemd service..."
-
-    cp "${INSTALL_DIR}/${SERVICE_NAME}" "${SERVICE_FILE}"
-    chmod 644 "${SERVICE_FILE}"
-
+    # Reload systemd
     systemctl daemon-reload
+
+    # Enable service to start on boot
     systemctl enable "${SERVICE_NAME}"
 
-    log_ok "Systemd service installed and enabled: ${SERVICE_NAME}"
-}
+    success "Systemd service installed and enabled"
+    info "Service name: ${SERVICE_NAME}"
+else
+    warning "Service file not found: ${SOURCE_DIR}/${SERVICE_SRC}"
+    warning "You will need to manually install the systemd service."
+fi
+echo ""
 
-start_service() {
-    log_info "Starting modInteractive service..."
-    systemctl start "${SERVICE_NAME}" || {
-        log_warn "Service failed to start. Check logs: journalctl -u ${SERVICE_NAME} -n 50"
-    }
+#===============================================================================
+# Step 7: Verify installation
+#===============================================================================
+info "Step 7/7: Verifying installation..."
 
-    # Give it a moment
-    sleep 2
+VERIFY_ERRORS=0
 
-    local status
-    status=$(systemctl is-active "${SERVICE_NAME}" 2>/dev/null || echo "unknown")
-    if [[ "${status}" == "active" ]]; then
-        log_ok "Service is running"
-    else
-        log_warn "Service status: ${status}"
-        log_warn "Run 'sudo journalctl -u ${SERVICE_NAME} -n 50' to debug"
-    fi
-}
+# Check virtual environment
+if [[ -f "${VENV_DIR}/bin/python" ]]; then
+    PYTHON_VERSION=$("${VENV_DIR}/bin/python" --version 2>&1)
+    success "Python: ${PYTHON_VERSION}"
+else
+    error "Virtual environment Python not found!"
+    VERIFY_ERRORS=1
+fi
 
-# ---------------------------------------------------------------------------
-# Permissions
-# ---------------------------------------------------------------------------
-set_permissions() {
-    log_info "Setting permissions..."
-    chown -R pi:pi "${INSTALL_DIR}"
-    chmod -R 755 "${INSTALL_DIR}"
-    # Make sure pi user can read/write logs and videos
-    chmod -R 775 "${INSTALL_DIR}/logs"
-    chmod -R 775 "${INSTALL_DIR}/videos"
-    usermod -aG video pi
-    log_ok "Permissions set"
-}
+# Check main.py exists
+if [[ -f "${INSTALL_DIR}/main.py" ]]; then
+    success "main.py installed"
+else
+    error "main.py not found!"
+    VERIFY_ERRORS=1
+fi
 
-# ---------------------------------------------------------------------------
-# Post-install summary
-# ---------------------------------------------------------------------------
-print_summary() {
-    echo ""
-    echo "============================================================================="
-    echo -e "${GREEN}  modInteractive v${VERSION} installed successfully!${NC}"
-    echo "============================================================================="
-    echo ""
-    echo "  Installation:  ${INSTALL_DIR}"
-    echo "  Virtual env:   ${VENV_DIR}"
-    echo "  Config file:   ${CONFIG_FILE}"
-    echo "  Videos:        ${VIDEO_DIR}"
-    echo "  YOLO model:    ${YOLO_MODEL}"
-    echo "  Service:       ${SERVICE_NAME}"
-    echo ""
-    echo "  Manage service:"
-    echo "    sudo systemctl start   ${SERVICE_NAME}"
-    echo "    sudo systemctl stop    ${SERVICE_NAME}"
-    echo "    sudo systemctl restart ${SERVICE_NAME}"
-    echo "    sudo systemctl status  ${SERVICE_NAME}"
-    echo ""
-    echo "  View logs:"
-    echo "    sudo journalctl -u ${SERVICE_NAME} -f"
-    echo "    tail -f ${INSTALL_DIR}/logs/modinteractive.log"
-    echo ""
-    echo "  Uninstall:     sudo ${INSTALL_DIR}/uninstall.sh"
-    echo ""
-    echo "============================================================================="
-}
+# Check mpv
+if command -v mpv &> /dev/null; then
+    MPV_VERSION=$(mpv --version 2>&1 | head -1)
+    success "mpv: ${MPV_VERSION}"
+else
+    warning "mpv not found in PATH"
+fi
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-main() {
-    echo "============================================================================="
-    echo "  modInteractive v${VERSION} Installer"
-    echo "  AI-Powered Kiosk System for Raspberry Pi 5"
-    echo "============================================================================="
-    echo ""
+# Check systemd service
+if systemctl is-enabled "${SERVICE_NAME}" &> /dev/null; then
+    success "Service ${SERVICE_NAME} is enabled"
+else
+    warning "Service ${SERVICE_NAME} is not enabled"
+fi
 
-    check_root
-    check_raspberry_pi
-    check_os
-    echo ""
+echo ""
+echo "========================================"
 
-    install_system_deps
-    install_mpv_arm64
-    echo ""
+if [[ ${VERIFY_ERRORS} -eq 0 ]]; then
+    success "Installation completed successfully!"
+else
+    warning "Installation completed with ${VERIFY_ERRORS} error(s)."
+fi
 
-    create_directories
-    copy_files
-    echo ""
+echo ""
+info "You can now start the service with:"
+info "  sudo systemctl start ${SERVICE_NAME}"
+info ""
+info "Check service status:"
+info "  sudo systemctl status ${SERVICE_NAME}"
+info ""
+info "View logs:"
+info "  journalctl -u ${SERVICE_NAME} -f"
+info ""
+info "Test the application manually:"
+info "  cd ${INSTALL_DIR}"
+info "  sudo -u ${REAL_USER:-pi} ${VENV_DIR}/bin/python main.py"
+echo ""
 
-    setup_venv
-    install_python_requirements
-    echo ""
-
-    download_yolo_model
-    create_example_videos
-    echo ""
-
-    set_permissions
-    install_systemd_service
-    start_service
-    echo ""
-
-    print_summary
-}
-
-main "$@"
+exit 0

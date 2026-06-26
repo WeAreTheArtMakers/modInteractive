@@ -1,35 +1,30 @@
 [Unit]
-Description=modInteractive - AI Kiosk System
-After=network.target graphical.target
-Wants=graphical.target
+Description=modInteractive Kiosk Application
+Documentation=https://github.com/WeAreTheArtMakers/modInteractive
+After=network.target multi-user.target
+Wants=display-manager.service
 
 [Service]
 Type=simple
-User=pi
-Group=pi
 WorkingDirectory=/opt/modInteractive
-
-Environment=DISPLAY=:0
-Environment=XAUTHORITY=/home/pi/.Xauthority
-Environment=QT_QPA_PLATFORM=xcb
-Environment=XDG_RUNTIME_DIR=/run/user/1000
-Environment=PATH=/opt/modInteractive/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-Environment=HOME=/home/pi
-
-ExecStart=/opt/modInteractive/.venv/bin/python /opt/modInteractive/main.py
+ExecStart=/opt/modInteractive/venv/bin/python /opt/modInteractive/main.py
 Restart=always
 RestartSec=5
-WatchdogSec=10
-TimeoutStartSec=30
-TimeoutStopSec=10
+User=pi
+Group=pi
 
-NoNewPrivileges=yes
-ProtectSystem=full
-ProtectHome=read-only
-ReadWritePaths=/opt/modInteractive/logs /opt/modInteractive/videos /opt/modInteractive/config.json
+# Environment
+Environment=PYTHONUNBUFFERED=1
+Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
 
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logging
 StandardOutput=journal
 StandardError=journal
 
 [Install]
-WantedBy=graphical.target
+WantedBy=multi-user.target

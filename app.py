@@ -1,38 +1,34 @@
-"""Application controller for modInteractive.
+"""Application controller for modInteractive kiosk system.
 
-Core application that initializes all services and manages the event-driven system.
+Coordinates config loading, camera access, motion detection,
+video playback, and graceful shutdown in a simple async event loop.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
-import logging.handlers
 import os
 import signal
 import sys
 import time
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
-from core.event_bus import Event, EventBus, EventPriority, SystemEvents
-from core.state_machine import StateMachine, SystemState
-from core.config_service import ConfigService
-from core.logging_service import LoggingService
-from core.camera_service import CameraService
-from core.detection_service import DetectionService
-from core.playback_service import PlaybackService
-from core.watchdog import SystemWatchdog
-from core.plugin_base import PluginManager
+import cv2
+import numpy as np
 
-logger = logging.getLogger(__name__)
+from core.config import Config
+from core.detector import Detector
+from core.player import Player
+
+logger = logging.getLogger("modInteractive.app")
 
 
 class Application:
-    """Main application controller.
+    """Main application for the interactive kiosk system.
 
-    Initializes all services, wires them together via event bus,
-    and manages the system lifecycle.
+    Runs an event loop that captures camera frames, detects motion/persons,
+    and triggers video playback.  Manages cooldowns, state, and cleanup.
     """
 
     def __init__(self, config_path: str = "config.json") -> None:
@@ -41,367 +37,270 @@ class Application:
         Args:
             config_path: Path to configuration file
         """
-        self._config_path = config_path
-        self._running = False
+        self._config = Config(config_path)
+        self._config.load()
 
-        # Core event bus
-        self._event_bus = EventBus()
-
-        # State machine
-        self._state_machine = StateMachine(
-            event_bus=self._event_bus,
-            on_state_change=self._on_state_change,
-        )
-
-        # Services
-        self._config_service: Optional[ConfigService] = None
-        self._logging_service: Optional[LoggingService] = None
-        self._camera_service: Optional[CameraService] = None
-        self._detection_service: Optional[DetectionService] = None
-        self._playback_service: Optional[PlaybackService] = None
-        self._watchdog: Optional[SystemWatchdog] = None
-        self._plugin_manager: Optional[PluginManager] = None
-
-        # UI
-        self._ui = None
-
-        # Background tasks
-        self._tasks: List[asyncio.Task[None]] = []
-
-        # Cooldown state
+        self._running: bool = False
+        self._playing_video: bool = False
         self._cooldown_until: float = 0.0
+        self._camera: Optional[cv2.VideoCapture] = None
 
-    async def start(self) -> None:
-        """Start the application and all services."""
-        logger.info("Starting modInteractive...")
-
-        # Initialize event bus first
-        await self._event_bus.start()
-
-        # Initialize config service
-        self._config_service = ConfigService(
-            event_bus=self._event_bus,
-            config_path=self._config_path,
+        # Core components
+        self._detector = Detector(
+            sensitivity=self._config.get("motion_sensitivity", 500),
+            confidence=self._config.get("detection_confidence", 0.5),
+            mode=self._config.get("detection_mode", "motion"),
         )
-        await self._config_service.start()
-
-        # Initialize logging service
-        self._logging_service = LoggingService(
-            event_bus=self._event_bus,
-            retention_days=self._config_service.get("system.log_retention_days", 7),
-        )
-        await self._logging_service.start()
-
-        # Initialize plugin manager
-        self._plugin_manager = PluginManager(
-            event_bus=self._event_bus,
-            plugin_paths=self._config_service.get("plugins.paths", []),
+        self._player = Player(
+            player=self._config.get("player", "mpv"),
+            fullscreen=self._config.get("fullscreen", True),
+            volume=self._config.get("player_volume", 90),
         )
 
-        # Initialize camera service
-        camera_config = self._config_service.get("camera", {})
-        self._camera_service = CameraService(
-            event_bus=self._event_bus,
-            device_id=camera_config.get("device_id", 0),
-            width=camera_config.get("resolution", {}).get("width", 640),
-            height=camera_config.get("resolution", {}).get("height", 480),
-            fps=camera_config.get("fps", 15),
-            auto_reconnect=camera_config.get("auto_reconnect", True),
-            reconnect_interval=camera_config.get("reconnect_interval", 3),
-        )
+        self._check_environment()
 
-        # Initialize detection service
-        detection_config = self._config_service.get("detection", {})
-        self._detection_service = DetectionService(
-            event_bus=self._event_bus,
-            confidence_threshold=detection_config.get("confidence_threshold", 0.55),
-            motion_sensitivity=detection_config.get("motion_sensitivity", 0.03),
-            frame_skip=detection_config.get("frame_skip", 3),
-            model_path=detection_config.get("model_path", "models/yolov8n.pt"),
-            consecutive_frames=detection_config.get("consecutive_frames", 2),
-        )
+    def _check_environment(self) -> None:
+        """Check system requirements and log status."""
+        logger.info("=" * 60)
+        logger.info("modInteractive - Interactive Kiosk System")
+        logger.info("=" * 60)
 
-        # Initialize playback service
-        video_config = self._config_service.get("video", {})
-        self._playback_service = PlaybackService(
-            event_bus=self._event_bus,
-            fade_in_duration=video_config.get("fade_in_duration", 0.8),
-            fade_out_duration=video_config.get("fade_out_duration", 0.8),
-            volume=video_config.get("volume", 90),
-            fullscreen=video_config.get("fullscreen", True),
-            playback_mode=video_config.get("playback_mode", "single"),
-            loop_videos=video_config.get("loop_videos", False),
-        )
+        # Config check
+        logger.info("[CHECK] Configuration loaded: OK")
 
-        # Initialize watchdog
-        watchdog_timeout = self._config_service.get("system.watchdog_timeout", 10)
-        self._watchdog = SystemWatchdog(
-            event_bus=self._event_bus,
-            timeout=watchdog_timeout,
-        )
-
-        # Load video playlist from config
-        playlist = video_config.get("playlist", [])
-        if playlist:
-            resolved_playlist = []
-            for video_path in playlist:
-                abs_path = os.path.abspath(video_path)
-                if os.path.exists(abs_path):
-                    resolved_playlist.append(abs_path)
-                    logger.info(f"Video found: {abs_path}")
-                elif os.path.exists(video_path):
-                    resolved_playlist.append(video_path)
-                    logger.info(f"Video found: {video_path}")
-                else:
-                    logger.warning(f"Video not found: {video_path}")
-            
-            if resolved_playlist:
-                self._playback_service.set_playlist(resolved_playlist)
-                logger.info(f"Playlist loaded: {len(resolved_playlist)} video(s)")
-            else:
-                logger.warning("No videos found in playlist configuration")
-
-        # Subscribe system event handlers (BEFORE starting services)
-        self._subscribe_events()
-
-        # Start services
-        await self._camera_service.start()
-        await self._detection_service.start()
-        await self._playback_service.start()
-        await self._watchdog.start()
-
-        # Load plugins
-        await self._plugin_manager.discover_plugins()
-        await self._plugin_manager.load_all_plugins()
-
-        # Start UI if available
-        ui_enabled = self._config_service.get("ui.headless", False) is False
-        if ui_enabled:
-            try:
-                from ui.main_window import MainWindow
-                self._ui = MainWindow(
-                    event_bus=self._event_bus,
-                    state_machine=self._state_machine,
-                    config_service=self._config_service,
-                )
-                self._ui.show()
-                self._ui.showMaximized()
-                logger.info("UI started successfully")
-            except ImportError as e:
-                logger.warning(f"UI not available (running headless): {e}")
-            except Exception as e:
-                logger.warning(f"UI initialization failed, running headless: {e}")
-
-        # Transition to IDLE state
-        await self._state_machine.transition_to(SystemState.IDLE)
-
-        # System startup complete
-        await self._event_bus.publish(
-            Event(
-                event_type=SystemEvents.SYSTEM_STARTUP,
-                source="app",
-                data={"status": "success"},
-                priority=EventPriority.HIGH,
-            )
-        )
-
-        self._running = True
-        logger.info("modInteractive started successfully")
-
-    async def stop(self) -> None:
-        """Stop the application gracefully."""
-        logger.info("Stopping modInteractive...")
-
-        await self._event_bus.publish(
-            Event(
-                event_type=SystemEvents.SYSTEM_SHUTDOWN,
-                source="app",
-                data={"reason": "user_request"},
-                priority=EventPriority.CRITICAL,
-            )
-        )
-
-        # Stop services in reverse order
-        if self._playback_service:
-            await self._playback_service.stop()
-        if self._detection_service:
-            await self._detection_service.stop()
-        if self._camera_service:
-            await self._camera_service.stop()
-        if self._watchdog:
-            await self._watchdog.stop()
-        if self._plugin_manager:
-            await self._plugin_manager.shutdown_all()
-        if self._logging_service:
-            await self._logging_service.stop()
-        if self._config_service:
-            await self._config_service.stop()
-
-        await self._event_bus.stop()
-        self._running = False
-        logger.info("modInteractive stopped")
-
-    async def _subscribe_events(self) -> None:
-        """Subscribe to system events."""
-        # Detection events -> trigger playback
-        self._event_bus.subscribe(
-            SystemEvents.PERSON_CONFIRMED,
-            self._on_person_confirmed,
-        )
-
-        # Playback events -> state transitions
-        self._event_bus.subscribe(
-            SystemEvents.PLAYBACK_COMPLETED,
-            self._on_playback_completed,
-        )
-
-        # Camera events
-        self._event_bus.subscribe(
-            SystemEvents.CAMERA_ERROR,
-            self._on_system_error,
-        )
-
-        # Config changes
-        self._event_bus.subscribe(
-            SystemEvents.CONFIG_CHANGED,
-            self._on_config_changed,
-        )
-
-        # Log all events and forward to state machine
-        self._event_bus.subscribe_all(self._on_any_event)
-
-    async def _on_any_event(self, event: Event) -> None:
-        """Handle any event for logging and state machine forwarding.
-
-        Args:
-            event: Any system event
-        """
-        if self._logging_service:
-            await self._logging_service.log_event(event)
-        
-        # Forward to state machine
-        await self._state_machine.handle_event(event)
-
-    async def _on_person_confirmed(self, event: Event) -> None:
-        """Handle person confirmed event - triggers video playback.
-
-        Args:
-            event: Person confirmed event
-        """
-        # Check cooldown
-        if time.time() < self._cooldown_until:
-            logger.debug(f"Cooldown active ({self._cooldown_until - time.time():.0f}s remaining)")
-            return
-
-        # Check if video playlist has content
-        playlist = self._playback_service.get_playlist()
-        if not playlist:
-            logger.warning("No videos in playlist, cannot trigger playback")
-            return
-
-        confidence = event.data.get("confidence", 0.0)
-        method = event.data.get("method", "unknown")
-        logger.info(f"🎯 Person detected! Confidence={confidence:.2f}, Method={method}")
-
-        # Trigger video playback
-        success = await self._playback_service.play_video()
-        if success:
-            logger.info("▶️ Video playback triggered successfully")
+        # Video file check
+        video = self._config.video_path
+        if os.path.exists(video):
+            logger.info("[OK] Video file found: %s", video)
         else:
-            logger.error("❌ Video playback failed to start")
+            logger.warning("[WARNING] Video file not found: %s", video)
 
-    async def _on_playback_completed(self, event: Event) -> None:
-        """Handle playback completed event - activate cooldown.
+        # Player check
+        if self._player.is_available:
+            logger.info("[OK] Player '%s' is available", self._player.player_name)
+        else:
+            logger.warning(
+                "[WARNING] Player '%s' not found. Install: sudo apt install %s",
+                self._player.player_name,
+                self._player.player_name,
+            )
+
+        # Log directory check
+        log_dir = "logs"
+        if os.access(log_dir, os.W_OK) if os.path.exists(log_dir) else True:
+            logger.info("[OK] Log directory accessible")
+        else:
+            logger.warning("[WARNING] Log directory not writable: %s", log_dir)
+
+        logger.info("-" * 60)
+
+    def _open_camera(self) -> bool:
+        """Open the camera device.
+
+        Returns:
+            True if camera opened successfully
+        """
+        camera_index = self._config.camera_index
+        try:
+            self._camera = cv2.VideoCapture(camera_index)
+
+            if not self._camera.isOpened():
+                logger.error("Failed to open camera (index: %d)", camera_index)
+                self._camera = None
+                return False
+
+            # Set camera properties
+            width = self._config.get("camera_width", 640)
+            height = self._config.get("camera_height", 480)
+            fps = self._config.get("camera_fps", 15)
+
+            self._camera.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+            self._camera.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+            self._camera.set(cv2.CAP_PROP_FPS, fps)
+
+            # Set buffer to 1 for low latency
+            self._camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+            logger.info(
+                "Camera opened: index=%d, %dx%d @ %d fps",
+                camera_index, width, height, fps,
+            )
+            logger.info("[OK] Camera is available")
+            return True
+
+        except Exception as e:
+            logger.error("Camera initialization error: %s", e)
+            self._camera = None
+            return False
+
+    def _close_camera(self) -> None:
+        """Release the camera resource."""
+        if self._camera is not None:
+            try:
+                self._camera.release()
+                logger.info("Camera released")
+            except Exception as e:
+                logger.error("Error releasing camera: %s", e)
+            finally:
+                self._camera = None
+
+    def _read_frame(self) -> Optional[np.ndarray]:
+        """Read a frame from the camera.
+
+        Returns:
+            Frame as numpy array, or None on failure
+        """
+        if self._camera is None:
+            return None
+
+        try:
+            ret, frame = self._camera.read()
+            if not ret or frame is None:
+                logger.warning("Failed to read frame from camera")
+                return None
+            return frame
+        except Exception as e:
+            logger.error("Error reading frame: %s", e)
+            return None
+
+    async def _handle_detection(self, frame: np.ndarray) -> None:
+        """Process a frame for detection.
+
+        If detection triggers and no cooldown is active, starts video playback.
 
         Args:
-            event: Playback completed event
+            frame: OpenCV BGR image frame
         """
-        cooldown = self._config_service.get("detection.cooldown_seconds", 8)
+        if not self._config.detection_enabled:
+            return
+
+        # Check cooldown
+        now = time.time()
+        if now < self._cooldown_until:
+            return
+
+        # Run detection
+        detected, confidence, metadata = self._detector.detect(frame)
+
+        if detected and not self._playing_video:
+            logger.info(
+                "🎯 Detection: method=%s, confidence=%.2f, pixels=%d",
+                metadata.get("method", "?"),
+                confidence,
+                metadata.get("motion_pixels", 0),
+            )
+            await self._play_video()
+
+    async def _play_video(self) -> None:
+        """Play the configured video and wait for completion."""
+        video_path = self._config.video_path
+
+        if not os.path.exists(video_path):
+            logger.error("Cannot play: video file not found: %s", video_path)
+            return
+
+        if not self._player.is_available:
+            logger.error("Cannot play: player '%s' not available", self._player.player_name)
+            return
+
+        self._playing_video = True
+        logger.info("▶️ Starting video playback: %s", video_path)
+
+        # Start playback in subprocess
+        if not self._player.play(video_path):
+            self._playing_video = False
+            return
+
+        # Wait for completion in a non-blocking way
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, self._player.wait_for_completion)
+
+        logger.info("⏹️ Video playback finished")
+        self._playing_video = False
+
+        # Set cooldown
+        cooldown = self._config.cooldown_seconds
         self._cooldown_until = time.time() + cooldown
-        logger.info(f"⏳ Cooldown active for {cooldown}s")
+        logger.info("⏳ Cooldown: %d seconds", cooldown)
 
-    async def _on_system_error(self, event: Event) -> None:
-        """Handle system error events.
+    async def run(self) -> None:
+        """Main application loop.
 
-        Args:
-            event: Error event
+        Captures camera frames, detects motion, and manages playback.
+        Runs until stop() is called or an unrecoverable error occurs.
         """
-        error_msg = str(event.data.get("error", "Unknown error"))
-        logger.error(f"System error from {event.source}: {error_msg}")
-        if self._logging_service:
-            await self._logging_service.log_error(
-                error_type="SYSTEM_ERROR",
-                message=error_msg,
-                source=event.source,
+        self._running = True
+
+        # Open camera
+        camera_ok = self._open_camera()
+        if not camera_ok:
+            logger.error(
+                "Cannot start: camera not available. "
+                "Check camera connection and permissions."
             )
+            self._running = False
+            return
 
-    async def _on_config_changed(self, event: Event) -> None:
-        """Handle configuration changes.
+        logger.info("Application is running. Press Ctrl+C to stop.")
+        logger.info("Waiting for detection...")
 
-        Args:
-            event: Config changed event
-        """
-        new_config = event.data.get("new", {})
-        logger.info("Configuration changed, applying updates")
+        frame_count = 0
 
-        # Apply camera config changes
-        camera_config = new_config.get("camera", {})
-        if camera_config:
-            resolution = camera_config.get("resolution", {})
-            if resolution:
-                self._camera_service.set_resolution(
-                    resolution.get("width", 640),
-                    resolution.get("height", 480),
-                )
+        try:
+            while self._running:
+                # Read frame
+                frame = self._read_frame()
+                if frame is None:
+                    # Try to reconnect camera
+                    logger.warning("Camera frame lost, attempting reconnect...")
+                    self._close_camera()
+                    await asyncio.sleep(2)
+                    if not self._open_camera():
+                        logger.error("Camera reconnect failed")
+                        await asyncio.sleep(5)
+                    continue
 
-        # Apply detection config changes
-        detection_config = new_config.get("detection", {})
-        if detection_config:
-            self._detection_service.set_confidence_threshold(
-                detection_config.get("confidence_threshold", 0.55)
-            )
-            self._detection_service.set_motion_sensitivity(
-                detection_config.get("motion_sensitivity", 0.03)
-            )
+                frame_count += 1
 
-        # Apply video config changes
-        video_config = new_config.get("video", {})
-        if video_config:
-            self._playback_service.set_volume(video_config.get("volume", 90))
-            self._playback_service.set_fade_duration(
-                video_config.get("fade_in_duration", 0.8),
-                video_config.get("fade_out_duration", 0.8),
-            )
+                # Process detection (skip frames for performance)
+                if frame_count % 3 == 0:
+                    await self._handle_detection(frame)
 
-    async def _on_state_change(
-        self,
-        old_state: SystemState,
-        new_state: SystemState,
-    ) -> None:
-        """Handle state machine state changes.
+                # Small sleep to control loop speed
+                await asyncio.sleep(0.03)  # ~30 FPS loop
 
-        Args:
-            old_state: Previous state
-            new_state: New state
-        """
-        logger.info(f"System state: {old_state.name} -> {new_state.name}")
+        except asyncio.CancelledError:
+            logger.info("Application task cancelled")
+        except Exception as e:
+            logger.error("Unexpected error in main loop: %s", e, exc_info=True)
+        finally:
+            await self.shutdown()
 
-        # Start/stop services based on state
-        if new_state == SystemState.IDLE:
-            if self._camera_service and not self._camera_service.is_connected:
-                logger.info("Camera not connected in IDLE state, restarting...")
-                await self._camera_service.restart()
-        elif new_state == SystemState.ERROR:
-            logger.error("System entered error state")
-            asyncio.create_task(self._auto_recovery())
+    def stop(self) -> None:
+        """Signal the application to stop."""
+        self._running = False
+        logger.info("Stop signal received")
 
-    async def _auto_recovery(self) -> None:
-        """Attempt automatic recovery from error state."""
-        logger.info("Auto-recovery in 5 seconds...")
-        await asyncio.sleep(5)
-        if self._state_machine.current_state == SystemState.ERROR:
-            logger.info("Attempting auto-recovery...")
-            await self._state_machine.transition_to(SystemState.IDLE)
-            if self._camera_service:
-                await self._camera_service.restart()
-            logger.info("Auto-recovery completed")
+    async def shutdown(self) -> None:
+        """Clean shutdown of all components."""
+        logger.info("Shutting down...")
+
+        # Stop video playback
+        if self._playing_video:
+            self._player.stop()
+            self._playing_video = False
+
+        # Release camera
+        self._close_camera()
+
+        logger.info("Shutdown complete")
+
+    @property
+    def is_running(self) -> bool:
+        """Check if application is running."""
+        return self._running
+
+    @property
+    def is_playing(self) -> bool:
+        """Check if video is currently playing."""
+        return self._playing_video
