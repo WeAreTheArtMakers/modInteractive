@@ -11,7 +11,7 @@ import os
 import shutil
 import subprocess
 import sys
-from typing import List
+from typing import List, Optional
 
 logger = logging.getLogger("modInteractive.player")
 
