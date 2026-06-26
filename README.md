@@ -406,3 +406,46 @@ Or set this in `config.json`:
 ```
 
 Default PIR input is BCM GPIO 17. See `PIR_SENSOR_NOTES.md`.
+
+
+## PIR First Production Mode
+
+Bu sürümde sistem varsayılan olarak PIR sensör ile çalışacak şekilde ayarlanmıştır. Kamera opsiyonel ikinci tetik kaynağıdır.
+
+Varsayılan çalışma:
+
+```bash
+python main.py
+```
+
+Bu komut `config.json` içindeki şu ayarı kullanır:
+
+```json
+{
+  "trigger": {
+    "source": "pir"
+  }
+}
+```
+
+Kamera ile çalıştırmak için:
+
+```bash
+python main.py --source camera
+```
+
+PIR test:
+
+```bash
+python tools/test_pir.py --pin 17
+```
+
+Varsayılan PIR bağlantısı:
+
+```text
+PIR VCC -> Raspberry Pi 5V
+PIR GND -> Raspberry Pi GND
+PIR OUT -> Raspberry Pi BCM GPIO 17 / physical pin 11
+```
+
+Detaylı bağlantı kontrolü için `PIR_WIRING_CHECK.md` dosyasına bak.

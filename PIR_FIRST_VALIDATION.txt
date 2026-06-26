@@ -1,0 +1,41 @@
+modInteractive Raspberry Pi 5 PIR-first production patch
+
+Default trigger source: pir
+Optional trigger source: camera
+
+Main wiring expected by code:
+PIR VCC -> 5V
+PIR GND -> GND
+PIR OUT -> BCM GPIO 17 / physical pin 11
+
+Included files:
+main.py
+app.py
+config.json
+core/config.py
+core/healthcheck.py
+core/pir.py
+admin/server.py
+admin/templates/index.html
+admin/static/app.js
+install.sh
+systemd/modinteractive.service
+.github/workflows/ci.yml
+tools/test_pir.py
+PIR_WIRING_CHECK.md
+PIR_SENSOR_NOTES.md
+README.md
+
+Validation:
+PY OK: main.py
+PY OK: app.py
+PY OK: admin/server.py
+PY OK: core/config.py
+PY OK: core/healthcheck.py
+PY OK: core/pir.py
+PY OK: tools/test_pir.py
+SHELL OK: install.sh 
+JSON OK: config.json
+YAML OK: .github/workflows/ci.yml
+JS OK: admin/static/app.js 
+

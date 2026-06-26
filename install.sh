@@ -83,6 +83,7 @@ mkdir -p "${INSTALL_DIR}/admin"
 mkdir -p "${INSTALL_DIR}/systemd"
 mkdir -p "${INSTALL_DIR}/videos"
 mkdir -p "${INSTALL_DIR}/logs"
+mkdir -p "${INSTALL_DIR}/tools"
 success "Directories created"
 echo ""
 
@@ -122,6 +123,13 @@ if [[ -d "${SOURCE_DIR}/admin" ]]; then
     cp -a "${SOURCE_DIR}/admin/." "${INSTALL_DIR}/admin/"
 else
     warning "Admin directory not found. Admin panel will be disabled."
+fi
+
+
+if [[ -d "${SOURCE_DIR}/tools" ]]; then
+    rm -rf "${INSTALL_DIR}/tools"
+    mkdir -p "${INSTALL_DIR}/tools"
+    cp -a "${SOURCE_DIR}/tools/." "${INSTALL_DIR}/tools/"
 fi
 
 if [[ -d "${SOURCE_DIR}/videos" ]]; then
