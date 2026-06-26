@@ -1,0 +1,13 @@
+Final Pi5 PIR-ready patch validation
+
+PY OK: main.py
+PY OK: app.py
+PY OK: admin/server.py
+PY OK: core/config.py
+PY OK: core/healthcheck.py
+PY OK: core/pir.py
+PY OK: tools/test_pir.py
+SHELL OK: install.sh 
+JSON OK: config.json
+YAML OK: .github/workflows/ci.yml
+JS OK: admin/static/app.js 
