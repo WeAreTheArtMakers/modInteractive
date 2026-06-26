@@ -1,174 +1,281 @@
-"""Detection module for modInteractive.
+def __init__(
+    self,
+    sensitivity: float = 500.0,
+    min_area: float = 1500.0,
+    warmup_frames: int = 30,
+) -> None:
+    """Initialize detector.
 
-Provides motion detection via OpenCV background subtraction.
-"""
+    Args:
+        sensitivity: Motion pixel threshold. Lower means more sensitive.
+        min_area: Minimum contour area required to trigger motion.
+        warmup_frames: Frames used to learn the background before detection.
+    """
+    self._sensitivity = max(1.0, float(sensitivity))
+    self._min_area = max(1.0, float(min_area))
+    self._warmup_frames = max(0, int(warmup_frames))
 
-from __future__ import annotations
+    self._bg_subtractor = self._create_background_subtractor()
+    self._kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
 
-import logging
-import time
-from typing import Any, Dict, Optional, Tuple
+    self._frame_count = 0
+    self._warmup_count = 0
+    self._is_warmed_up = self._warmup_frames == 0
+    self._previous_gray: Optional[np.ndarray] = None
+    self._last_detection_time = 0.0
+    self._last_motion_pixels = 0
+    self._last_max_area = 0.0
 
-import cv2
-import numpy as np
+    logger.info(
+        "Detector initialized: sensitivity=%.1f, min_area=%.1f, warmup_frames=%d",
+        self._sensitivity,
+        self._min_area,
+        self._warmup_frames,
+    )
 
-logger = logging.getLogger("modInteractive.detector")
+def detect(self, frame: np.ndarray) -> Tuple[bool, float, int, Dict[str, Any]]:
+    """Detect motion in a frame.
 
+    Args:
+        frame: OpenCV BGR image frame.
 
-class Detector:
-    """Motion detector using OpenCV MOG2 background subtraction."""
+    Returns:
+        Tuple of detected, confidence, motion_pixels, metadata.
+    """
+    self._frame_count += 1
 
-    def __init__(
-        self,
-        sensitivity: float = 500.0,
-        min_area: float = 1500.0,
-        warmup_frames: int = 30,
-    ) -> None:
-        """Initialize detector.
+    if not self._is_valid_frame(frame):
+        logger.warning("Detector received invalid frame")
+        return False, 0.0, 0, self._metadata()
 
-        Args:
-            sensitivity: Motion sensitivity (lower = more sensitive)
-            min_area: Minimum motion area to trigger (pixels)
-            warmup_frames: Frames to learn background before detecting
-        """
-        self._sensitivity: float = max(100.0, float(sensitivity))
-        self._min_area: float = max(500.0, float(min_area))
-        self._bg_subtractor = cv2.createBackgroundSubtractorMOG2(
-            history=500, varThreshold=16, detectShadows=True
-        )
-        self._last_detection_time: float = 0.0
-        self._frame_count: int = 0
-        self._warmup_frames: int = warmup_frames
-        self._is_warmed_up: bool = False
-        self._previous_gray: Optional[np.ndarray] = None
+    gray = self._prepare_gray(frame)
 
+    if not self._is_warmed_up:
+        self._warmup(frame, gray)
+        return False, 0.0, 0, self._metadata(warming_up=True)
+
+    if self._previous_gray is None:
+        self._previous_gray = gray
+        return False, 0.0, 0, self._metadata()
+
+    delta_mask = self._frame_difference_mask(gray)
+    bg_mask = self._background_subtraction_mask(frame)
+    combined_mask = cv2.bitwise_and(delta_mask, bg_mask)
+    combined_mask = self._clean_mask(combined_mask)
+
+    motion_pixels = int(cv2.countNonZero(combined_mask))
+    max_area = self._max_contour_area(combined_mask)
+
+    self._last_motion_pixels = motion_pixels
+    self._last_max_area = max_area
+    self._previous_gray = gray
+
+    detected = motion_pixels >= self._sensitivity and max_area >= self._min_area
+    confidence = self._calculate_confidence(motion_pixels, max_area)
+
+    metadata = self._metadata(
+        motion_pixels=motion_pixels,
+        max_contour_area=max_area,
+        confidence=confidence,
+        warming_up=False,
+    )
+
+    if detected:
+        self._last_detection_time = time.time()
         logger.info(
-            "Detector initialized: sensitivity=%.1f, min_area=%.1f",
-            self._sensitivity, self._min_area,
+            "Motion detected: pixels=%d, max_area=%.0f, confidence=%.2f",
+            motion_pixels,
+            max_area,
+            confidence,
         )
+        return True, confidence, motion_pixels, metadata
 
-    def warmup(self, frame: np.ndarray) -> None:
-        """Feed frames to background model without detecting.
+    return False, 0.0, motion_pixels, metadata
 
-        Args:
-            frame: OpenCV BGR image frame
-        """
+def warmup(self, frame: np.ndarray) -> None:
+    """Feed one frame to the background model without detecting.
+
+    Args:
+        frame: OpenCV BGR image frame.
+    """
+    if not self._is_valid_frame(frame):
+        return
+
+    gray = self._prepare_gray(frame)
+    self._warmup(frame, gray)
+
+def reset_background(self) -> None:
+    """Reset the background model and warmup state."""
+    self._bg_subtractor = self._create_background_subtractor()
+    self._frame_count = 0
+    self._warmup_count = 0
+    self._is_warmed_up = self._warmup_frames == 0
+    self._previous_gray = None
+    self._last_motion_pixels = 0
+    self._last_max_area = 0.0
+    logger.info("Detector background model reset")
+
+def set_sensitivity(self, value: float) -> None:
+    """Set motion sensitivity.
+
+    Args:
+        value: Motion pixel threshold. Lower means more sensitive.
+    """
+    try:
+        self._sensitivity = max(1.0, float(value))
+        logger.info("Detector sensitivity set to %.1f", self._sensitivity)
+    except (TypeError, ValueError):
+        logger.warning("Invalid sensitivity value: %r", value)
+
+def set_min_area(self, value: float) -> None:
+    """Set minimum motion contour area.
+
+    Args:
+        value: Minimum contour area in pixels.
+    """
+    try:
+        self._min_area = max(1.0, float(value))
+        logger.info("Detector min_area set to %.1f", self._min_area)
+    except (TypeError, ValueError):
+        logger.warning("Invalid min_area value: %r", value)
+
+def _warmup(self, frame: np.ndarray, gray: np.ndarray) -> None:
+    """Update background model during warmup."""
+    self._bg_subtractor.apply(frame, learningRate=0.5)
+    self._previous_gray = gray
+    self._warmup_count += 1
+
+    if self._warmup_count >= self._warmup_frames:
+        self._is_warmed_up = True
+        logger.info("Detector warmup complete: %d frames", self._warmup_count)
+
+def _prepare_gray(self, frame: np.ndarray) -> np.ndarray:
+    """Convert frame to normalized blurred grayscale image."""
+    if len(frame.shape) == 2:
+        gray = frame
+    else:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray, (21, 21), 0)
-        self._bg_subtractor.apply(frame)
-        self._frame_count += 1
+
+    gray = cv2.GaussianBlur(gray, (21, 21), 0)
+    return gray
+
+def _frame_difference_mask(self, gray: np.ndarray) -> np.ndarray:
+    """Create threshold mask using frame differencing."""
+    if self._previous_gray is None:
         self._previous_gray = gray
+        return np.zeros_like(gray)
 
-    def set_sensitivity(self, value: float) -> None:
-        """Set motion sensitivity.
+    delta = cv2.absdiff(self._previous_gray, gray)
+    _, threshold = cv2.threshold(delta, 25, 255, cv2.THRESH_BINARY)
+    return threshold
 
-        Args:
-            value: Sensitivity value (lower = more sensitive)
-        """
-        self._sensitivity = max(100.0, float(value))
+def _background_subtraction_mask(self, frame: np.ndarray) -> np.ndarray:
+    """Create threshold mask using background subtraction."""
+    fg_mask = self._bg_subtractor.apply(frame, learningRate=0.01)
+    fg_mask = cv2.medianBlur(fg_mask, 5)
 
-    def set_min_area(self, value: float) -> None:
-        """Set minimum motion area threshold.
+    _, threshold = cv2.threshold(fg_mask, 200, 255, cv2.THRESH_BINARY)
+    return threshold
 
-        Args:
-            value: Minimum area in pixels
-        """
-        self._min_area = max(500.0, float(value))
+def _clean_mask(self, mask: np.ndarray) -> np.ndarray:
+    """Remove noise from binary motion mask."""
+    cleaned = cv2.morphologyEx(mask, cv2.MORPH_OPEN, self._kernel)
+    cleaned = cv2.morphologyEx(cleaned, cv2.MORPH_CLOSE, self._kernel)
+    cleaned = cv2.dilate(cleaned, self._kernel, iterations=1)
+    return cleaned
 
-    def detect(self, frame: np.ndarray) -> Tuple[bool, float, int, Dict[str, Any]]:
-        """Detect motion in a frame.
+def _max_contour_area(self, mask: np.ndarray) -> float:
+    """Return largest contour area in a binary mask."""
+    contours, _hierarchy = cv2.findContours(
+        mask,
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE,
+    )
 
-        Args:
-            frame: OpenCV BGR image frame
+    if not contours:
+        return 0.0
 
-        Returns:
-            Tuple of (detected, confidence, motion_pixels, metadata)
-        """
-        self._frame_count += 1
+    return float(max(cv2.contourArea(contour) for contour in contours))
 
-        if not self._is_warmed_up:
-            if self._frame_count < self._warmup_frames:
-                self.warmup(frame)
-                return False, 0.0, 0, {}
-            self._is_warmed_up = True
-            logger.info("Detector warmup complete (%d frames)",
-                        self._warmup_frames)
+def _calculate_confidence(self, motion_pixels: int, max_area: float) -> float:
+    """Calculate normalized confidence value between 0.0 and 1.0."""
+    pixel_score = motion_pixels / max(self._sensitivity * 3.0, 1.0)
+    area_score = max_area / max(self._min_area * 3.0, 1.0)
+    confidence = max(pixel_score, area_score)
+    return max(0.0, min(1.0, float(confidence)))
 
-        # Motion detection with frame differencing
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray, (21, 21), 0)
+def _metadata(
+    self,
+    motion_pixels: Optional[int] = None,
+    max_contour_area: Optional[float] = None,
+    confidence: float = 0.0,
+    warming_up: bool = False,
+) -> Dict[str, Any]:
+    """Return detector metadata."""
+    return {
+        "motion_pixels": int(self._last_motion_pixels if motion_pixels is None else motion_pixels),
+        "max_contour_area": float(self._last_max_area if max_contour_area is None else max_contour_area),
+        "confidence": float(confidence),
+        "sensitivity": float(self._sensitivity),
+        "min_area": float(self._min_area),
+        "frame_count": int(self._frame_count),
+        "warmup_count": int(self._warmup_count),
+        "warmup_frames": int(self._warmup_frames),
+        "is_warmed_up": bool(self._is_warmed_up),
+        "warming_up": bool(warming_up),
+        "last_detection_time": float(self._last_detection_time),
+    }
 
-        delta = cv2.absdiff(self._previous_gray, gray)
-        self._previous_gray = gray
+def _is_valid_frame(self, frame: np.ndarray) -> bool:
+    """Return True if frame is a usable OpenCV image."""
+    if frame is None:
+        return False
 
-        # Apply background subtraction as second check
-        fg_mask = self._bg_subtractor.apply(frame)
-        fg_mask = cv2.medianBlur(fg_mask, 5)
+    if not isinstance(frame, np.ndarray):
+        return False
 
-        # Threshold both
-        _, delta_thresh = cv2.threshold(delta, 25, 255, cv2.THRESH_BINARY)
-        _, fg_thresh = cv2.threshold(fg_mask, 200, 255, cv2.THRESH_BINARY)
+    if frame.size == 0:
+        return False
 
-        # Combine: motion detected in both methods
-        combined = cv2.bitwise_and(delta_thresh, fg_thresh)
+    if len(frame.shape) not in (2, 3):
+        return False
 
-        # Morphological noise removal
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        combined = cv2.morphologyEx(combined, cv2.MORPH_OPEN, kernel)
-        combined = cv2.morphologyEx(combined, cv2.MORPH_CLOSE, kernel)
+    return True
 
-        # Count motion pixels
-        motion_pixels = cv2.countNonZero(combined)
+def _create_background_subtractor(self) -> cv2.BackgroundSubtractor:
+    """Create OpenCV MOG2 background subtractor."""
+    return cv2.createBackgroundSubtractorMOG2(
+        history=500,
+        varThreshold=16,
+        detectShadows=True,
+    )
 
-        metadata: Dict[str, Any] = {
-            "motion_pixels": motion_pixels,
-            "sensitivity": self._sensitivity,
-            "min_area": self._min_area,
-        }
+@property
+def frame_count(self) -> int:
+    """Return total processed frame count."""
+    return self._frame_count
 
-        # Check against sensitivity AND minimum area
-        if motion_pixels > self._sensitivity:
-            # Find contours to check actual area
-            contours, _ = cv2.findContours(
-                combined, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-            )
-            max_area = 0.0
-            for cnt in contours:
-                area = cv2.contourArea(cnt)
-                if area > max_area:
-                    max_area = area
+@property
+def warmup_count(self) -> int:
+    """Return detector warmup frame count."""
+    return self._warmup_count
 
-            metadata["max_contour_area"] = max_area
+@property
+def last_detection_time(self) -> float:
+    """Return timestamp of last detection."""
+    return self._last_detection_time
 
-            if max_area > self._min_area:
-                now = time.time()
-                self._last_detection_time = now
-                confidence = min(1.0, motion_pixels / (self._sensitivity * 5))
-                return True, confidence, motion_pixels, metadata
+@property
+def is_warmed_up(self) -> bool:
+    """Return True if detector has completed warmup."""
+    return self._is_warmed_up
 
-        return False, 0.0, motion_pixels, metadata
+@property
+def sensitivity(self) -> float:
+    """Return current motion sensitivity."""
+    return self._sensitivity
 
-    def reset_background(self) -> None:
-        """Reset the background model."""
-        self._bg_subtractor = cv2.createBackgroundSubtractorMOG2(
-            history=500, varThreshold=16, detectShadows=True
-        )
-        self._is_warmed_up = False
-        self._frame_count = 0
-        self._previous_gray = None
-        logger.info("Background model reset")
-
-    @property
-    def frame_count(self) -> int:
-        """Get total frames processed."""
-        return self._frame_count
-
-    @property
-    def last_detection_time(self) -> float:
-        """Get timestamp of last detection."""
-        return self._last_detection_time
-
-    @property
-    def is_warmed_up(self) -> bool:
-        """Check if detector has completed warmup."""
-        return self._is_warmed_up
+@property
+def min_area(self) -> float:
+    """Return current minimum contour area."""
+    return self._min_area

@@ -1,29 +1,63 @@
-# Video Files for modInteractive
+# Video Files
 
-Place your video files in this directory.
+Bu klasöre modInteractive sisteminin oynatacağı video dosyalarını koy.
 
-## Default Video
+Varsayılan video dosyası:
 
-The application looks for `videos/selamlama.mp4` by default.
-You can change the path in `config.json`:
+`videos/selamlama.mp4`
 
-```json
-{
-  "video": {
-    "path": "videos/selamlama.mp4"
-  }
-}
-```
+## Varsayılan Video
 
-## Supported Formats
+Uygulama varsayılan olarak şu dosyayı arar:
 
-The application uses `mpv` for playback, supporting most common formats:
-- MP4 (H.264/H.265)
-- AVI, MKV, MOV, WebM
+`videos/selamlama.mp4`
 
-## Notes
+Farklı bir video yolu kullanmak için `config.json` içinde şu alanı değiştir:
 
-- Videos play in fullscreen mode by default
-- One video plays per motion detection
-- After playback, cooldown period starts before re-detection
-- Video files are not tracked in git (see `.gitignore`)
+`video.path`
+
+Örnek değer:
+
+`videos/selamlama.mp4`
+
+## Desteklenen Formatlar
+
+Video oynatma için `mpv` kullanılır. Genellikle şu formatlar desteklenir:
+
+* MP4
+* MOV
+* MKV
+* AVI
+* WebM
+
+Önerilen format:
+
+* `.mp4`
+* H.264 video codec
+* AAC audio codec
+* 1080p veya daha düşük çözünürlük
+
+## Kullanım
+
+Kendi videonu varsayılan video olarak kullanmak için:
+
+`selamlama.mp4`
+
+adıyla bu klasöre koy.
+
+Kurulumdan önce:
+
+`videos/selamlama.mp4`
+
+Kurulumdan sonra Raspberry Pi üzerinde:
+
+`/opt/modInteractive/videos/selamlama.mp4`
+
+## Notlar
+
+* Video hareket algılanınca bir kez oynatılır.
+* Video oynarken yeni hareket tetiklemesi alınmaz.
+* Video bittikten sonra cooldown süresi başlar.
+* Cooldown bitince kamera tekrar hareket algılamaya devam eder.
+* Video dosyaları Git deposunda takip edilmez.
+* Bu klasörde sadece `.gitkeep` ve bu README dosyası takip edilir.

@@ -1,48 +1,60 @@
 name: CI
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+push:
+branches: [main]
+pull_request:
+branches: [main]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
+test:
+runs-on: ubuntu-latest
 
-    steps:
-    - uses: actions/checkout@v4
+```
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+  - name: Set up Python
+    uses: actions/setup-python@v5
+    with:
+      python-version: "3.11"
 
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y python3-opencv python3-numpy
+  - name: Install system dependencies
+    run: |
+      sudo apt-get update
+      sudo apt-get install -y mpv v4l-utils
 
-    - name: Check Python syntax
-      run: |
-        python -m py_compile main.py
-        python -m py_compile app.py
-        for f in core/*.py; do
-          python -m py_compile "$f"
-          echo "OK: $f"
-        done
+  - name: Install Python dependencies
+    run: |
+      python -m pip install --upgrade pip
+      pip install -r requirements.txt
+      pip install numpy opencv-python-headless
 
-    - name: Check shell scripts
-      run: |
-        bash -n install.sh
+  - name: Check Python syntax
+    run: |
+      python -m py_compile main.py
+      python -m py_compile app.py
+      python -m py_compile admin/server.py
+      for file in core/*.py; do
+        python -m py_compile "$file"
+        echo "OK: $file"
+      done
+
+  - name: Check shell scripts
+    run: |
+      bash -n install.sh
+      if [ -f uninstall.sh ]; then
         bash -n uninstall.sh
-        echo "Shell syntax OK"
+      fi
+      echo "Shell syntax OK"
 
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+  - name: Check service file
+    run: |
+      sudo cp systemd/modinteractive.service /etc/systemd/system/modinteractive.service
+      sudo systemd-analyze verify /etc/systemd/system/modinteractive.service
 
-    - name: Run system check
-      run: |
-        python main.py --check || true
+  - name: Run system check
+    run: |
+      python main.py --check || true
+```

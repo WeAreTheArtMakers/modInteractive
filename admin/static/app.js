@@ -1,187 +1,484 @@
-document.addEventListener('DOMContentLoaded', function() {
-    // Tab switching
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', function() {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
-            this.classList.add('active');
-            document.getElementById(this.dataset.tab).classList.add('active');
-        });
-    });
+document.addEventListener("DOMContentLoaded", () => {
+bindTabs();
+bindForm();
+bindButtons();
+bindSensitivitySlider();
 
-    // Load config on page load
-    loadConfig();
-    loadStatus();
-    loadLogs();
+```
+loadConfig();
+loadStatus();
+loadLogs();
+```
 
-    // Config form submission
-    document.getElementById('config-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        saveConfig();
-    });
-
-    // Refresh buttons
-    document.getElementById('refresh-status').addEventListener('click', loadStatus);
-    document.getElementById('refresh-logs').addEventListener('click', loadLogs);
-
-    // Test video button
-    document.getElementById('test-video').addEventListener('click', testVideo);
-
-    // Motion sensitivity slider
-    const sensitivitySlider = document.getElementById('motion-sensitivity');
-    const sensitivityValue = document.getElementById('motion-sensitivity-value');
-    sensitivitySlider.addEventListener('input', function() {
-        sensitivityValue.textContent = this.value;
-    });
 });
 
-function showStatus(message, type) {
-    const el = document.getElementById('save-status');
-    el.textContent = message;
-    el.className = 'status-msg ' + type;
-    setTimeout(() => {
-        el.className = 'status-msg';
-    }, 5000);
-}
+function bindTabs() {
+document.querySelectorAll(".tab").forEach((tab) => {
+tab.addEventListener("click", () => {
+const targetId = tab.dataset.tab;
 
-function loadConfig() {
-    fetch('/api/config')
-        .then(r => r.json())
-        .then(config => {
-            document.getElementById('camera-index').value = config.camera?.index || 0;
-            document.getElementById('camera-width').value = config.camera?.width || 640;
-            document.getElementById('camera-height').value = config.camera?.height || 480;
-            document.getElementById('camera-fps').value = config.camera?.fps || 15;
+```
+        document.querySelectorAll(".tab").forEach((item) => {
+            item.classList.remove("active");
+        });
 
-            const sensitivity = config.detection?.motion_sensitivity || 500;
-            document.getElementById('motion-sensitivity').value = sensitivity;
-            document.getElementById('motion-sensitivity-value').textContent = sensitivity;
-            document.getElementById('min-motion-area').value = config.detection?.min_motion_area || 1500;
-            document.getElementById('cooldown-seconds').value = config.detection?.cooldown_seconds || 10;
-            document.getElementById('frame-skip').value = config.detection?.frame_skip || 3;
+        document.querySelectorAll(".tab-content").forEach((content) => {
+            content.classList.remove("active");
+        });
 
-            document.getElementById('video-path').value = config.video?.path || 'videos/selamlama.mp4';
-            document.getElementById('video-volume').value = config.video?.volume || 90;
-            document.getElementById('video-fullscreen').checked = config.video?.fullscreen !== false;
-        })
-        .catch(err => showStatus('Failed to load config: ' + err, 'error'));
-}
+        tab.classList.add("active");
 
-function saveConfig() {
-    const config = {
-        system: { log_level: 'INFO', project_name: 'modInteractive' },
-        camera: {
-            index: parseInt(document.getElementById('camera-index').value),
-            width: parseInt(document.getElementById('camera-width').value),
-            height: parseInt(document.getElementById('camera-height').value),
-            fps: parseInt(document.getElementById('camera-fps').value),
-            backend: 'v4l2'
-        },
-        detection: {
-            enabled: true,
-            mode: 'motion',
-            motion_sensitivity: parseInt(document.getElementById('motion-sensitivity').value),
-            min_motion_area: parseInt(document.getElementById('min-motion-area').value),
-            frame_skip: parseInt(document.getElementById('frame-skip').value),
-            warmup_seconds: 2,
-            cooldown_seconds: parseInt(document.getElementById('cooldown-seconds').value)
-        },
-        video: {
-            path: document.getElementById('video-path').value,
-            fullscreen: document.getElementById('video-fullscreen').checked,
-            volume: parseInt(document.getElementById('video-volume').value),
-            player: 'mpv'
-        },
-        admin: {
-            enabled: true,
-            host: '0.0.0.0',
-            port: 8080
+        const target = document.getElementById(targetId);
+        if (target) {
+            target.classList.add("active");
         }
-    };
 
-    fetch('/api/config/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.status === 'ok') {
-            showStatus('Configuration saved successfully', 'success');
-        } else {
-            showStatus('Error: ' + (data.error || 'Unknown'), 'error');
+        if (targetId === "status") {
+            loadStatus();
         }
-    })
-    .catch(err => showStatus('Failed to save: ' + err, 'error'));
+
+        if (targetId === "logs") {
+            loadLogs();
+        }
+    });
+});
+```
+
 }
 
-function loadStatus() {
-    fetch('/api/status')
-        .then(r => r.json())
-        .then(status => {
-            const container = document.getElementById('status-content');
-            const items = [
-                { label: 'OpenCV Version', value: status.opencv_version || 'N/A' },
-                { label: 'Camera', value: status.camera_available ? 'Available' : 'Not Available',
-                  fail: !status.camera_available },
-                { label: 'Camera Resolution', value: status.camera_resolution || 'N/A' },
-                { label: 'Video File', value: status.video_exists ? 'Found' : 'Not Found',
-                  fail: !status.video_exists },
-                { label: 'mpv Player', value: status.mpv_available ? 'Available' : 'Not Available',
-                  fail: !status.mpv_available },
-            ];
+function bindForm() {
+const form = document.getElementById("config-form");
 
-            container.innerHTML = items.map(item => `
-                <div class="status-item">
-                    <span class="label">${item.label}</span>
-                    <span class="value ${item.fail ? 'fail' : ''}">${item.value}</span>
-                </div>
-            `).join('');
-        })
-        .catch(err => {
-            document.getElementById('status-content').innerHTML =
-                '<div class="status-item"><span class="label">Error: ' + err + '</span></div>';
-        });
+```
+if (!form) {
+    return;
 }
 
-function loadLogs() {
-    fetch('/api/logs')
-        .then(r => r.json())
-        .then(data => {
-            const logContent = document.getElementById('log-content');
-            if (data.logs && data.logs.length > 0) {
-                logContent.textContent = data.logs.join('');
-            } else {
-                logContent.textContent = 'No log entries found.';
-            }
-            // Auto-scroll to bottom
-            document.getElementById('log-container').scrollTop =
-                document.getElementById('log-container').scrollHeight;
-        })
-        .catch(err => {
-            document.getElementById('log-content').textContent = 'Error loading logs: ' + err;
-        });
+form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    saveConfig();
+});
+```
+
 }
 
-function testVideo() {
-    const btn = document.getElementById('test-video');
-    btn.textContent = 'Testing...';
-    btn.disabled = true;
+function bindButtons() {
+const refreshStatus = document.getElementById("refresh-status");
+const refreshLogs = document.getElementById("refresh-logs");
+const testVideoButton = document.getElementById("test-video");
 
-    // Play video using mpv via subprocess
-    fetch('/api/config')
-        .then(r => r.json())
-        .then(config => {
-            const videoPath = config.video?.path || 'videos/selamlama.mp4';
-            showStatus('Testing video: ' + videoPath, 'success');
-            setTimeout(() => {
-                btn.textContent = 'Test Video';
-                btn.disabled = false;
-            }, 2000);
-        })
-        .catch(err => {
-            showStatus('Test failed: ' + err, 'error');
-            btn.textContent = 'Test Video';
-            btn.disabled = false;
-        });
+```
+if (refreshStatus) {
+    refreshStatus.addEventListener("click", loadStatus);
+}
+
+if (refreshLogs) {
+    refreshLogs.addEventListener("click", loadLogs);
+}
+
+if (testVideoButton) {
+    testVideoButton.addEventListener("click", testVideo);
+}
+```
+
+}
+
+function bindSensitivitySlider() {
+const slider = document.getElementById("motion-sensitivity");
+const value = document.getElementById("motion-sensitivity-value");
+
+```
+if (!slider || !value) {
+    return;
+}
+
+slider.addEventListener("input", () => {
+    value.textContent = slider.value;
+});
+```
+
+}
+
+function showStatus(message, type = "info") {
+const element = document.getElementById("save-status");
+
+```
+if (!element) {
+    return;
+}
+
+element.textContent = message;
+element.className = `status-msg ${type}`;
+
+window.setTimeout(() => {
+    element.className = "status-msg";
+}, 5000);
+```
+
+}
+
+async function apiFetch(url, options = {}) {
+const response = await fetch(url, {
+cache: "no-store",
+...options,
+});
+
+```
+let data = {};
+
+try {
+    data = await response.json();
+} catch (_error) {
+    data = {};
+}
+
+if (!response.ok) {
+    const message = data.error || `${response.status} ${response.statusText}`;
+    throw new Error(message);
+}
+
+return data;
+```
+
+}
+
+async function loadConfig() {
+try {
+const config = await apiFetch("/api/config");
+
+```
+    setValue("camera-index", getNested(config, "camera.index", 0));
+    setValue("camera-width", getNested(config, "camera.width", 640));
+    setValue("camera-height", getNested(config, "camera.height", 480));
+    setValue("camera-fps", getNested(config, "camera.fps", 15));
+
+    const sensitivity = getNested(config, "detection.motion_sensitivity", 500);
+    setValue("motion-sensitivity", sensitivity);
+    setText("motion-sensitivity-value", sensitivity);
+
+    setValue("min-motion-area", getNested(config, "detection.min_motion_area", 1500));
+    setValue("cooldown-seconds", getNested(config, "detection.cooldown_seconds", 10));
+    setValue("frame-skip", getNested(config, "detection.frame_skip", 3));
+
+    setValue("video-path", getNested(config, "video.path", "videos/selamlama.mp4"));
+    setValue("video-volume", getNested(config, "video.volume", 90));
+    setChecked("video-fullscreen", getNested(config, "video.fullscreen", true));
+
+    showStatus("Configuration loaded", "success");
+} catch (error) {
+    showStatus(`Failed to load config: ${error.message}`, "error");
+}
+```
+
+}
+
+async function saveConfig() {
+const config = {
+system: {
+log_level: "INFO",
+project_name: "modInteractive",
+version: "1.0.0",
+},
+camera: {
+index: readInt("camera-index", 0, 0, 20),
+width: readInt("camera-width", 640, 160, 3840),
+height: readInt("camera-height", 480, 120, 2160),
+fps: readInt("camera-fps", 15, 1, 60),
+backend: "v4l2",
+},
+detection: {
+enabled: true,
+mode: "motion",
+motion_sensitivity: readInt("motion-sensitivity", 500, 1, 100000),
+min_motion_area: readInt("min-motion-area", 1500, 1, 100000),
+frame_skip: readInt("frame-skip", 3, 1, 30),
+warmup_seconds: 2,
+cooldown_seconds: readInt("cooldown-seconds", 10, 0, 600),
+},
+video: {
+path: readString("video-path", "videos/selamlama.mp4"),
+fullscreen: readChecked("video-fullscreen", true),
+volume: readInt("video-volume", 90, 0, 100),
+player: "mpv",
+},
+admin: {
+enabled: true,
+host: "0.0.0.0",
+port: 8080,
+},
+};
+
+```
+try {
+    const data = await apiFetch("/api/config/update", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(config),
+    });
+
+    if (data.status === "ok") {
+        showStatus("Configuration saved successfully", "success");
+        await loadStatus();
+    } else {
+        showStatus(data.error || "Configuration save failed", "error");
+    }
+} catch (error) {
+    showStatus(`Failed to save: ${error.message}`, "error");
+}
+```
+
+}
+
+async function loadStatus() {
+const container = document.getElementById("status-content");
+
+```
+if (!container) {
+    return;
+}
+
+container.innerHTML = createStatusItem("Loading", "Please wait", false);
+
+try {
+    const status = await apiFetch("/api/status");
+
+    const items = [
+        {
+            label: "OpenCV",
+            value: status.opencv_available
+                ? `Available (${status.opencv_version || "unknown"})`
+                : "Not available",
+            fail: !status.opencv_available,
+        },
+        {
+            label: "Camera",
+            value: status.camera_available ? "Available" : "Not available",
+            fail: !status.camera_available,
+        },
+        {
+            label: "Camera Resolution",
+            value: status.camera_resolution || "N/A",
+            fail: false,
+        },
+        {
+            label: "Video File",
+            value: status.video_exists ? "Found" : "Not found",
+            fail: !status.video_exists,
+        },
+        {
+            label: "Video Path",
+            value: status.video_path || "N/A",
+            fail: false,
+        },
+        {
+            label: "mpv Player",
+            value: status.mpv_available ? `Available (${status.mpv_path || "mpv"})` : "Not available",
+            fail: !status.mpv_available,
+        },
+        {
+            label: "Config Path",
+            value: status.config_path || "N/A",
+            fail: false,
+        },
+    ];
+
+    container.innerHTML = items
+        .map((item) => createStatusItem(item.label, item.value, item.fail))
+        .join("");
+} catch (error) {
+    container.innerHTML = createStatusItem("Error", error.message, true);
+}
+```
+
+}
+
+async function loadLogs() {
+const logContent = document.getElementById("log-content");
+const logContainer = document.getElementById("log-container");
+
+```
+if (!logContent) {
+    return;
+}
+
+try {
+    const data = await apiFetch("/api/logs?limit=150");
+    const logs = Array.isArray(data.logs) ? data.logs : [];
+
+    if (logs.length > 0) {
+        logContent.textContent = logs.join("\n");
+    } else {
+        logContent.textContent = "No log entries found.";
+    }
+
+    if (logContainer) {
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+} catch (error) {
+    logContent.textContent = `Error loading logs: ${error.message}`;
+}
+```
+
+}
+
+async function testVideo() {
+const button = document.getElementById("test-video");
+
+```
+if (!button) {
+    return;
+}
+
+const originalText = button.textContent;
+button.textContent = "Testing...";
+button.disabled = true;
+
+try {
+    const data = await apiFetch("/api/test-video", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            path: readString("video-path", "videos/selamlama.mp4"),
+        }),
+    });
+
+    showStatus(data.message || "Video playback started", "success");
+} catch (error) {
+    showStatus(`Test failed: ${error.message}`, "error");
+} finally {
+    window.setTimeout(() => {
+        button.textContent = originalText || "Test Video";
+        button.disabled = false;
+    }, 1500);
+}
+```
+
+}
+
+function createStatusItem(label, value, fail = false) {
+const safeLabel = escapeHtml(String(label));
+const safeValue = escapeHtml(String(value));
+
+```
+return `
+    <div class="status-item">
+        <span class="label">${safeLabel}</span>
+        <span class="value ${fail ? "fail" : "ok"}">${safeValue}</span>
+    </div>
+`;
+```
+
+}
+
+function getNested(object, path, fallback) {
+return path.split(".").reduce((value, key) => {
+if (value && Object.prototype.hasOwnProperty.call(value, key)) {
+return value[key];
+}
+
+```
+    return fallback;
+}, object);
+```
+
+}
+
+function setValue(id, value) {
+const element = document.getElementById(id);
+
+```
+if (element) {
+    element.value = value;
+}
+```
+
+}
+
+function setText(id, value) {
+const element = document.getElementById(id);
+
+```
+if (element) {
+    element.textContent = value;
+}
+```
+
+}
+
+function setChecked(id, value) {
+const element = document.getElementById(id);
+
+```
+if (element) {
+    element.checked = Boolean(value);
+}
+```
+
+}
+
+function readString(id, fallback) {
+const element = document.getElementById(id);
+
+```
+if (!element) {
+    return fallback;
+}
+
+const value = String(element.value || "").trim();
+return value || fallback;
+```
+
+}
+
+function readChecked(id, fallback) {
+const element = document.getElementById(id);
+
+```
+if (!element) {
+    return fallback;
+}
+
+return Boolean(element.checked);
+```
+
+}
+
+function readInt(id, fallback, minimum, maximum) {
+const element = document.getElementById(id);
+
+```
+if (!element) {
+    return fallback;
+}
+
+let value = Number.parseInt(element.value, 10);
+
+if (Number.isNaN(value)) {
+    value = fallback;
+}
+
+if (typeof minimum === "number" && value < minimum) {
+    value = minimum;
+}
+
+if (typeof maximum === "number" && value > maximum) {
+    value = maximum;
+}
+
+return value;
+```
+
+}
+
+function escapeHtml(value) {
+return value
+.replaceAll("&", "&")
+.replaceAll("<", "<")
+.replaceAll(">", ">")
+.replaceAll('"', """)
+.replaceAll("'", "'");
 }

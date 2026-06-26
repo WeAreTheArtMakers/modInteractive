@@ -1,5 +1,5 @@
 [Unit]
-Description=modInteractive Motion Triggered Video Display
+Description=modInteractive Motion Triggered HDMI Video Display
 Documentation=https://github.com/WeAreTheArtMakers/modInteractive
 After=graphical.target
 Wants=graphical.target
@@ -8,16 +8,19 @@ Wants=graphical.target
 Type=simple
 User=pi
 Group=pi
+SupplementaryGroups=audio video render input
 WorkingDirectory=/opt/modInteractive
-Environment=PYTHONUNBUFFERED=1
-Environment=DISPLAY=:0
-Environment=XDG_RUNTIME_DIR=/run/user/1000
-Environment=PATH=/opt/modInteractive/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=/opt/modInteractive/venv/bin/python /opt/modInteractive/main.py
 Restart=always
 RestartSec=5
 TimeoutStartSec=30
 TimeoutStopSec=10
+KillSignal=SIGINT
+KillMode=control-group
+Environment=PYTHONUNBUFFERED=1
+Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=PATH=/opt/modInteractive/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 StandardOutput=journal
 StandardError=journal
 

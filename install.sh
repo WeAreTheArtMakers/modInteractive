@@ -1,48 +1,46 @@
 #!/usr/bin/env bash
-#===============================================================================
-# install.sh - modInteractive Installer for Raspberry Pi
-#
-# Usage:
-#   chmod +x install.sh
-#   sudo ./install.sh
-#
-# This script is idempotent: running it multiple times is safe.
-#
-# It installs:
-#   - System packages: python3, python3-venv, python3-opencv, python3-numpy, mpv, v4l-utils
-#   - Virtual environment at /opt/modInteractive/venv (with --system-site-packages)
-#   - Python dependencies from requirements.txt
-#   - Systemd service (enabled but not started)
-#===============================================================================
-
 set -euo pipefail
 
-# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-info()    { echo -e "${BLUE}[INFO]${NC} $*"; }
+info() { echo -e "${BLUE}[INFO]${NC} $*"; }
 success() { echo -e "${GREEN}[OK]${NC} $*"; }
 warning() { echo -e "${YELLOW}[WARNING]${NC} $*"; }
-error()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
+error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 
-# Configuration
 INSTALL_DIR="/opt/modInteractive"
 VENV_DIR="${INSTALL_DIR}/venv"
 REQUIREMENTS="${INSTALL_DIR}/requirements.txt"
 SERVICE_NAME="modinteractive"
-SERVICE_SRC="systemd/${SERVICE_NAME}.service"
 SERVICE_DST="/etc/systemd/system/${SERVICE_NAME}.service"
 PYTHON="python3"
 
-# Root check
-if [[ $EUID -ne 0 ]]; then
-    error "This script must be run as root (use sudo)."
-    exit 1
+if [[ "${EUID}" -ne 0 ]]; then
+error "This script must be run as root. Use: sudo bash install.sh"
+exit 1
 fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE_DIR="${SCRIPT_DIR}"
+
+if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+REAL_USER="${SUDO_USER}"
+elif id -u pi >/dev/null 2>&1; then
+REAL_USER="pi"
+else
+REAL_USER="$(awk -F: '$3 >= 1000 && $3 < 65534 { print $1; exit }' /etc/passwd)"
+fi
+
+if [[ -z "${REAL_USER}" ]]; then
+REAL_USER="root"
+fi
+
+REAL_GROUP="$(id -gn "${REAL_USER}" 2>/dev/null || echo "${REAL_USER}")"
+REAL_UID="$(id -u "${REAL_USER}" 2>/dev/null || echo "0")"
 
 echo ""
 echo "========================================"
@@ -51,34 +49,25 @@ echo " Raspberry Pi Motion Triggered Display"
 echo "========================================"
 echo ""
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SOURCE_DIR="${SCRIPT_DIR}"
-
 info "Source: ${SOURCE_DIR}"
 info "Target: ${INSTALL_DIR}"
 info "Virtualenv: ${VENV_DIR}"
+info "Service user: ${REAL_USER}:${REAL_GROUP}"
 echo ""
 
-#------------------------------------------------------------------------------
-# Step 1: Install system dependencies
-#------------------------------------------------------------------------------
 info "Step 1/6: Installing system dependencies..."
-apt-get update -qq
-apt-get install -y -qq \
-    "${PYTHON}" \
-    "${PYTHON}-venv" \
-    "${PYTHON}-pip" \
-    "${PYTHON}-opencv" \
-    "${PYTHON}-numpy" \
-    mpv \
-    v4l-utils \
-    2>&1 | tail -3
+apt-get update
+apt-get install -y 
+python3 
+python3-venv 
+python3-pip 
+python3-opencv 
+python3-numpy 
+mpv 
+v4l-utils
 success "System dependencies installed"
 echo ""
 
-#------------------------------------------------------------------------------
-# Step 2: Create directory structure
-#------------------------------------------------------------------------------
 info "Step 2/6: Creating directory structure..."
 mkdir -p "${INSTALL_DIR}"
 mkdir -p "${INSTALL_DIR}/core"
@@ -90,131 +79,137 @@ mkdir -p "${INSTALL_DIR}/logs"
 success "Directories created"
 echo ""
 
-#------------------------------------------------------------------------------
-# Step 3: Copy application files
-#------------------------------------------------------------------------------
 info "Step 3/6: Copying application files..."
 
-cp "${SOURCE_DIR}/main.py"          "${INSTALL_DIR}/main.py"
-cp "${SOURCE_DIR}/app.py"           "${INSTALL_DIR}/app.py"
-cp "${SOURCE_DIR}/config.json"      "${INSTALL_DIR}/config.json"
-cp "${SOURCE_DIR}/requirements.txt" "${INSTALL_DIR}/requirements.txt"
-
-for pyfile in "${SOURCE_DIR}/core/"*.py; do
-    cp "${pyfile}" "${INSTALL_DIR}/core/"
+for required_file in main.py app.py config.json; do
+if [[ ! -f "${SOURCE_DIR}/${required_file}" ]]; then
+error "Required file missing: ${SOURCE_DIR}/${required_file}"
+exit 1
+fi
 done
 
-if [[ -d "${SOURCE_DIR}/admin" ]]; then
-    cp -r "${SOURCE_DIR}/admin/"* "${INSTALL_DIR}/admin/"
+cp "${SOURCE_DIR}/main.py" "${INSTALL_DIR}/main.py"
+cp "${SOURCE_DIR}/app.py" "${INSTALL_DIR}/app.py"
+cp "${SOURCE_DIR}/config.json" "${INSTALL_DIR}/config.json"
+
+if [[ -f "${SOURCE_DIR}/requirements.txt" ]]; then
+cp "${SOURCE_DIR}/requirements.txt" "${INSTALL_DIR}/requirements.txt"
+else
+cat > "${INSTALL_DIR}/requirements.txt" <<'EOF'
+flask>=2.3.0
+EOF
 fi
 
-if [[ -f "${SOURCE_DIR}/${SERVICE_SRC}" ]]; then
-    cp "${SOURCE_DIR}/${SERVICE_SRC}" "${INSTALL_DIR}/systemd/"
+if [[ -d "${SOURCE_DIR}/core" ]]; then
+cp -a "${SOURCE_DIR}/core/." "${INSTALL_DIR}/core/"
+else
+error "Required directory missing: ${SOURCE_DIR}/core"
+exit 1
 fi
 
-if ls "${SOURCE_DIR}/videos/"*.mp4 1>/dev/null 2>&1; then
-    cp "${SOURCE_DIR}/videos/"*.mp4 "${INSTALL_DIR}/videos/"
+if [[ -d "${SOURCE_DIR}/admin/templates" ]]; then
+cp -a "${SOURCE_DIR}/admin/templates/." "${INSTALL_DIR}/admin/templates/"
 fi
 
-REAL_USER="${SUDO_USER:-pi}"
-chown -R "${REAL_USER}":"${REAL_USER}" "${INSTALL_DIR}" 2>/dev/null || true
-chmod -R 755 "${INSTALL_DIR}"
+if [[ -d "${SOURCE_DIR}/admin/static" ]]; then
+cp -a "${SOURCE_DIR}/admin/static/." "${INSTALL_DIR}/admin/static/"
+fi
 
+if [[ -d "${SOURCE_DIR}/videos" ]]; then
+find "${SOURCE_DIR}/videos" -maxdepth 1 -type f ( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.webm" ) -exec cp -a {} "${INSTALL_DIR}/videos/" ;
+fi
+
+chown -R "${REAL_USER}:${REAL_GROUP}" "${INSTALL_DIR}" 2>/dev/null || true
+find "${INSTALL_DIR}" -type d -exec chmod 755 {} ;
+find "${INSTALL_DIR}" -type f -exec chmod 644 {} ;
 success "Application files copied"
 echo ""
 
-#------------------------------------------------------------------------------
-# Step 4: Create Python virtual environment
-#------------------------------------------------------------------------------
 info "Step 4/6: Creating Python virtual environment..."
 
-if [[ -d "${VENV_DIR}" ]]; then
-    info "Virtual environment exists, skipping creation"
+if [[ ! -d "${VENV_DIR}" ]]; then
+"${PYTHON}" -m venv --system-site-packages "${VENV_DIR}"
+success "Virtual environment created"
 else
-    "${PYTHON}" -m venv --system-site-packages "${VENV_DIR}"
-    success "Virtual environment created with --system-site-packages"
+info "Virtual environment already exists"
 fi
 
-"${VENV_DIR}/bin/pip" install --upgrade pip --quiet
-
-success "Virtualenv: ${VENV_DIR}"
+"${VENV_DIR}/bin/python" -m pip install --upgrade pip
+success "Virtualenv ready: ${VENV_DIR}"
 echo ""
 
-#------------------------------------------------------------------------------
-# Step 5: Install Python dependencies
-#------------------------------------------------------------------------------
 info "Step 5/6: Installing Python dependencies..."
-cd "${INSTALL_DIR}"
-"${VENV_DIR}/bin/pip" install -r "${REQUIREMENTS}" --quiet
+
+if [[ -s "${REQUIREMENTS}" ]]; then
+"${VENV_DIR}/bin/python" -m pip install -r "${REQUIREMENTS}"
+else
+warning "requirements.txt is empty, skipping pip install"
+fi
+
 success "Python dependencies installed"
 echo ""
 
-#------------------------------------------------------------------------------
-# Step 6: Install systemd service (enabled but NOT started)
-#------------------------------------------------------------------------------
 info "Step 6/6: Installing systemd service..."
 
-if [[ -f "${SOURCE_DIR}/${SERVICE_SRC}" ]]; then
-    cp "${SOURCE_DIR}/${SERVICE_SRC}" "${SERVICE_DST}"
-    chmod 644 "${SERVICE_DST}"
+cat > "${SERVICE_DST}" <<EOF
+[Unit]
+Description=modInteractive Motion Triggered HDMI Video Display
+Documentation=https://github.com/WeAreTheArtMakers/modInteractive
+After=graphical.target
+Wants=graphical.target
 
-    REAL_USER="${SUDO_USER:-pi}"
-    REAL_GROUP=$(id -gn "${REAL_USER}" 2>/dev/null || echo "pi")
-    REAL_UID=$(id -u "${REAL_USER}" 2>/dev/null || echo "1000")
+[Service]
+Type=simple
+User=${REAL_USER}
+Group=${REAL_GROUP}
+WorkingDirectory=${INSTALL_DIR}
+ExecStart=${VENV_DIR}/bin/python ${INSTALL_DIR}/main.py
+Restart=always
+RestartSec=5
+TimeoutStartSec=30
+TimeoutStopSec=10
+Environment=PYTHONUNBUFFERED=1
+Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=/run/user/${REAL_UID}
+Environment=PATH=${VENV_DIR}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+StandardOutput=journal
+StandardError=journal
 
-    sed -i "s/User=pi/User=${REAL_USER}/" "${SERVICE_DST}"
-    sed -i "s/Group=pi/Group=${REAL_GROUP}/" "${SERVICE_DST}"
-    sed -i "s|/run/user/1000|/run/user/${REAL_UID}|" "${SERVICE_DST}"
-    sed -i "s|/opt/modInteractive/.venv|${VENV_DIR}|g" "${SERVICE_DST}"
+[Install]
+WantedBy=graphical.target
+EOF
 
-    systemctl daemon-reload
-    systemctl enable "${SERVICE_NAME}"
-
-    success "Service ${SERVICE_NAME} installed and enabled"
-    info "Start it with: sudo systemctl start ${SERVICE_NAME}"
-else
-    warning "Service file not found: ${SOURCE_DIR}/${SERVICE_SRC}"
-fi
+chmod 644 "${SERVICE_DST}"
+systemctl daemon-reload
+systemctl enable "${SERVICE_NAME}"
+success "Service installed and enabled"
 echo ""
 
-#------------------------------------------------------------------------------
-# Check for video file
-#------------------------------------------------------------------------------
-if ! ls "${INSTALL_DIR}/videos/"*.mp4 1>/dev/null 2>&1; then
-    warning "No video files found in ${INSTALL_DIR}/videos/"
-    warning "Add a greeting video before starting:"
-    warning "  cp your_video.mp4 ${INSTALL_DIR}/videos/selamlama.mp4"
-    warning "  sudo chown -R ${REAL_USER:-pi}:${REAL_USER:-pi} ${INSTALL_DIR}/videos/"
+if ! find "${INSTALL_DIR}/videos" -maxdepth 1 -type f ( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.webm" ) | grep -q .; then
+warning "No video files found in ${INSTALL_DIR}/videos"
+warning "Add a video file as ${INSTALL_DIR}/videos/selamlama.mp4 before starting"
 fi
 
-#------------------------------------------------------------------------------
-# Summary
-#------------------------------------------------------------------------------
 echo ""
 echo "========================================"
-success "Installation completed!"
+success "Installation completed"
 echo ""
-echo "  Install dir:  ${INSTALL_DIR}"
-echo "  Virtualenv:   ${VENV_DIR}"
-echo "  Service:      ${SERVICE_NAME}"
+echo "Install dir: ${INSTALL_DIR}"
+echo "Virtualenv:  ${VENV_DIR}"
+echo "Service:     ${SERVICE_NAME}"
 echo ""
-info "Next steps:"
-info "  1. Add a video file:"
-info "     cp your_video.mp4 ${INSTALL_DIR}/videos/selamlama.mp4"
-info "     sudo chown -R ${REAL_USER:-pi}:${REAL_USER:-pi} ${INSTALL_DIR}/videos/"
-info ""
-info "  2. Test:"
-info "     sudo -u ${REAL_USER:-pi} ${VENV_DIR}/bin/python ${INSTALL_DIR}/main.py --check"
-info ""
-info "  3. Start service:"
-info "     sudo systemctl start ${SERVICE_NAME}"
-info ""
-info "  4. Status + logs:"
-info "     sudo systemctl status ${SERVICE_NAME}"
-info "     journalctl -u ${SERVICE_NAME} -f"
+info "Test:"
+echo "sudo -u ${REAL_USER} ${VENV_DIR}/bin/python ${INSTALL_DIR}/main.py --check"
 echo ""
-info "  5. Admin panel (if enabled):"
-info "     http://$(hostname -I 2>/dev/null | awk '{print $1}'):8080"
+info "Start:"
+echo "sudo systemctl start ${SERVICE_NAME}"
+echo ""
+info "Status:"
+echo "sudo systemctl status ${SERVICE_NAME}"
+echo "journalctl -u ${SERVICE_NAME} -f"
+echo ""
+info "Admin panel:"
+echo "http://$(hostname -I 2>/dev/null | awk '{print $1}'):8080"
 echo ""
 
 exit 0

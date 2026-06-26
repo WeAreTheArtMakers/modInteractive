@@ -1,220 +1,384 @@
 """System health check module for modInteractive.
 
-Runs diagnostics on all system components and reports status.
+Runs diagnostics for configuration, log directory, video player,
+camera, video file, OpenCV, admin port, and virtualenv setup.
 """
 
-from __future__ import annotations
+from **future** import annotations
 
+import importlib
 import logging
 import os
-import socket
 import shutil
+import socket
+import sys
 from pathlib import Path
-
-import cv2
+from typing import Any, List, Optional, Tuple
 
 from core.config import Config
 
 logger = logging.getLogger("modInteractive.healthcheck")
 
+HealthResult = Tuple[str, str, str]
 
-class HealthCheck:
-    """System health diagnostics."""
+class HealthCheck: 
+def __init__(self, config: Config) -> None:
+    """Initialize health check.
 
-    def __init__(self, config: Config) -> None:
-        """Initialize health check.
+    Args:
+        config: Application configuration.
+    """
+    self._config = config
+    self._results: List[HealthResult] = []
 
-        Args:
-            config: Application configuration
-        """
-        self._config = config
-        self._results: list[tuple[str, str, str]] = []
+def run_all(self) -> List[HealthResult]:
+    """Run all health checks.
 
-    def _ok(self, check: str, detail: str = "") -> None:
-        """Record a passed check.
+    Returns:
+        List of status, check name, and detail tuples.
+    """
+    self._results = []
 
-        Args:
-            check: Check name
-            detail: Optional detail message
-        """
-        self._results.append(("OK", check, detail))
+    self._check_config()
+    self._check_log_directory()
+    self._check_player()
+    self._check_opencv()
+    self._check_camera()
+    self._check_video_file()
+    self._check_admin_port()
+    self._check_venv()
 
-    def _warn(self, check: str, detail: str = "") -> None:
-        """Record a warning.
+    return list(self._results)
 
-        Args:
-            check: Check name
-            detail: Optional detail message
-        """
-        self._results.append(("WARNING", check, detail))
+def print_report(self) -> None:
+    """Print formatted health check report to stdout."""
+    if not self._results:
+        self.run_all()
 
-    def _fail(self, check: str, detail: str = "") -> None:
-        """Record a failed check.
+    max_len = max((len(check) for _status, check, _detail in self._results), default=20)
 
-        Args:
-            check: Check name
-            detail: Optional detail message
-        """
-        self._results.append(("FAIL", check, detail))
+    print("=" * 70)
+    print(" modInteractive - System Health Check")
+    print("=" * 70)
 
-    def run_all(self) -> list[tuple[str, str, str]]:
-        """Run all health checks.
+    has_fail = False
+    has_warning = False
 
-        Returns:
-            List of (status, check_name, detail) tuples
-        """
-        self._results = []
-        self._check_config()
-        self._check_log_directory()
-        self._check_mpv()
-        self._check_camera()
-        self._check_video_file()
-        self._check_opencv()
-        self._check_admin_port()
-        self._check_venv()
-        return self._results
+    for status, check, detail in self._results:
+        label = f"[{status}]".ljust(10)
+        padding = " " * (max_len - len(check) + 2)
+        print(f" {label} {check}{padding}{detail}")
 
-    def _check_config(self) -> None:
-        """Check configuration loads correctly."""
-        try:
-            cfg = self._config.data
-            if cfg:
-                self._ok("Config loaded",
-                         f"camera.index={self._config.get('camera.index', '?')}")
-            else:
-                self._fail("Config loaded", "Configuration is empty")
-        except Exception as e:
-            self._fail("Config loaded", str(e))
+        if status == "FAIL":
+            has_fail = True
+        elif status == "WARNING":
+            has_warning = True
 
-    def _check_log_directory(self) -> None:
-        """Check log directory is writable."""
-        log_dir = Path("logs")
-        try:
-            log_dir.mkdir(parents=True, exist_ok=True)
-            test_file = log_dir / ".healthcheck_test"
-            test_file.write_text("ok")
-            test_file.unlink()
-            self._ok("Log directory writable", str(log_dir.resolve()))
-        except OSError as e:
-            self._fail("Log directory writable", str(e))
+    print("-" * 70)
 
-    def _check_mpv(self) -> None:
-        """Check if mpv player is available."""
-        mpv_path = shutil.which("mpv")
-        if mpv_path:
-            self._ok("mpv found", mpv_path)
-        else:
-            self._fail("mpv found",
-                       "Install: sudo apt install mpv")
+    if has_fail:
+        print(" Some checks FAILED. Fix the failed items before production use.")
+    elif has_warning:
+        print(" Checks completed with warnings. Review warnings before deployment.")
+    else:
+        print(" All checks passed.")
 
-    def _check_camera(self) -> None:
-        """Check if camera can be opened."""
-        index = self._config.get("camera.index", 0)
-        try:
-            cap = cv2.VideoCapture(index)
-            if cap.isOpened():
-                ret, frame = cap.read()
-                if ret and frame is not None:
-                    h, w = frame.shape[:2]
-                    device_path = f"/dev/video{index}"
-                    if os.path.exists(device_path):
-                        self._ok("Camera opened",
-                                 f"{device_path} ({w}x{h})")
-                    else:
-                        self._ok("Camera opened",
-                                 f"index={index} ({w}x{h})")
-                else:
-                    self._warn("Camera opened",
-                               "Device opened but frame read failed")
-                cap.release()
-            else:
-                self._fail("Camera opened",
-                           f"Cannot open camera at index {index}")
-        except Exception as e:
-            self._fail("Camera opened", str(e))
+    print("=" * 70)
 
-    def _check_video_file(self) -> None:
-        """Check if configured video file exists."""
-        video_path = self._config.get("video.path", "videos/selamlama.mp4")
-        abs_path = os.path.abspath(video_path)
-        if os.path.exists(abs_path):
-            size_mb = os.path.getsize(abs_path) / (1024 * 1024)
-            self._ok("Video found",
-                     f"{abs_path} ({size_mb:.1f} MB)")
-        else:
-            self._warn("Video found",
-                       f"Not found: {abs_path}")
+@property
+def results(self) -> List[HealthResult]:
+    """Return health check results."""
+    return list(self._results)
 
-    def _check_opencv(self) -> None:
-        """Check OpenCV import and version."""
-        try:
-            version = cv2.__version__
-            import numpy as np
-            test_img = np.zeros((100, 100, 3), dtype=np.uint8)
-            success = test_img.shape == (100, 100, 3)
-            if success:
-                self._ok("OpenCV", f"version {version}")
-            else:
-                self._fail("OpenCV", "Basic functionality failed")
-        except Exception as e:
-            self._fail("OpenCV", str(e))
+@property
+def has_failures(self) -> bool:
+    """Return True if any health check failed."""
+    return any(status == "FAIL" for status, _check, _detail in self._results)
 
-    def _check_admin_port(self) -> None:
-        """Check if admin panel port is available."""
-        if not self._config.get("admin.enabled", True):
-            self._ok("Admin panel", "Disabled in config")
+@property
+def has_warnings(self) -> bool:
+    """Return True if any health check produced a warning."""
+    return any(status == "WARNING" for status, _check, _detail in self._results)
+
+def exit_code(self) -> int:
+    """Return suggested process exit code.
+
+    Returns:
+        1 if failures exist, otherwise 0.
+    """
+    return 1 if self.has_failures else 0
+
+def _ok(self, check: str, detail: str = "") -> None:
+    """Record a passed check."""
+    self._results.append(("OK", check, detail))
+
+def _warn(self, check: str, detail: str = "") -> None:
+    """Record a warning."""
+    self._results.append(("WARNING", check, detail))
+
+def _fail(self, check: str, detail: str = "") -> None:
+    """Record a failed check."""
+    self._results.append(("FAIL", check, detail))
+
+def _check_config(self) -> None:
+    """Check configuration loads correctly."""
+    try:
+        self._config.load()
+        data = self._config.data
+
+        if not isinstance(data, dict) or not data:
+            self._fail("Config loaded", "Configuration is empty or invalid")
             return
 
-        port = self._config.get("admin.port", 8080)
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            result = sock.connect_ex(("127.0.0.1", port))
-            sock.close()
-            if result != 0:
-                self._ok("Admin panel",
-                         f"Port {port} is available")
-            else:
-                self._ok("Admin panel",
-                         f"Port {port} (already in use)")
-        except Exception as e:
-            self._warn("Admin panel",
-                       f"Port check failed: {e}")
+        config_path = getattr(self._config, "path", "config.json")
+        camera_index = self._config.get("camera.index", "?")
+        video_path = self._config.get("video.path", "videos/selamlama.mp4")
 
-    def _check_venv(self) -> None:
-        """Check virtual environment path for systemd service."""
-        venv_python = "/opt/modInteractive/venv/bin/python"
-        alt_venv = "/opt/modInteractive/.venv/bin/python"
-        if os.path.isfile(venv_python):
-            self._ok("Virtualenv path",
-                     f"{venv_python} exists")
-        elif os.path.isfile(alt_venv):
-            self._warn("Virtualenv path",
-                       f"{alt_venv} exists (expected {venv_python})")
+        self._ok(
+            "Config loaded",
+            f"path={config_path}, camera.index={camera_index}, video.path={video_path}",
+        )
+
+    except Exception as exc:
+        self._fail("Config loaded", str(exc))
+
+def _check_log_directory(self) -> None:
+    """Check log directory is writable."""
+    try:
+        base_dir = getattr(self._config, "base_dir", Path.cwd())
+        log_dir = Path(base_dir) / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+
+        test_file = log_dir / ".healthcheck_test"
+        test_file.write_text("ok", encoding="utf-8")
+        test_file.unlink(missing_ok=True)
+
+        self._ok("Log directory writable", str(log_dir.resolve()))
+
+    except OSError as exc:
+        self._fail("Log directory writable", str(exc))
+    except Exception as exc:
+        self._fail("Log directory writable", str(exc))
+
+def _check_player(self) -> None:
+    """Check if configured video player is available."""
+    player = str(self._config.get("video.player", "mpv")).strip() or "mpv"
+    player_path = shutil.which(player)
+
+    if player_path:
+        self._ok(f"{player} found", player_path)
+    else:
+        install_hint = "sudo apt install mpv" if player == "mpv" else f"Install player: {player}"
+        self._fail(f"{player} found", install_hint)
+
+def _check_opencv(self) -> None:
+    """Check OpenCV import and basic functionality."""
+    try:
+        cv2 = importlib.import_module("cv2")
+        np = importlib.import_module("numpy")
+
+        test_img = np.zeros((100, 100, 3), dtype=np.uint8)
+        gray = cv2.cvtColor(test_img, cv2.COLOR_BGR2GRAY)
+
+        if gray.shape == (100, 100):
+            self._ok("OpenCV", f"version {cv2.__version__}")
         else:
-            self._warn("Virtualenv path",
-                       "Not installed yet (only matters after install)")
+            self._fail("OpenCV", "Basic cvtColor test failed")
 
-    def print_report(self) -> None:
-        """Print formatted health check report to stdout."""
-        max_len = max(len(c) for _, c, _ in self._results) if self._results else 20
+    except ImportError as exc:
+        self._fail("OpenCV", f"Import failed: {exc}")
+    except Exception as exc:
+        self._fail("OpenCV", str(exc))
 
-        print("=" * 60)
-        print(" modInteractive - System Health Check")
-        print("=" * 60)
+def _check_camera(self) -> None:
+    """Check if camera can be opened and can read one frame."""
+    try:
+        cv2 = importlib.import_module("cv2")
+    except ImportError as exc:
+        self._fail("Camera opened", f"OpenCV import failed: {exc}")
+        return
 
-        has_fail = False
-        for status, check, detail in self._results:
-            label = f"[{status}]".ljust(8)
-            padding = " " * (max_len - len(check) + 1)
-            print(f" {label} {check}{padding}{detail}")
-            if status == "FAIL":
-                has_fail = True
+    raw_index = self._config.get("camera.index", 0)
+    camera_index = self._normalize_camera_index(raw_index)
 
-        print("-" * 60)
+    width = self._safe_int(self._config.get("camera.width", 640), 640, minimum=1)
+    height = self._safe_int(self._config.get("camera.height", 480), 480, minimum=1)
+    fps = self._safe_int(self._config.get("camera.fps", 15), 15, minimum=1)
+    backend = str(self._config.get("camera.backend", "v4l2")).lower().strip()
 
-        if has_fail:
-            print(" Some checks FAILED. See messages above.")
+    cap = None
+
+    try:
+        if backend == "v4l2" and hasattr(cv2, "CAP_V4L2"):
+            cap = cv2.VideoCapture(camera_index, cv2.CAP_V4L2)
         else:
-            print(" All checks passed.")
+            cap = cv2.VideoCapture(camera_index)
 
-        print("=" * 60)
+        if cap is None or not cap.isOpened():
+            self._fail("Camera opened", f"Cannot open camera at index/device {camera_index}")
+            return
+
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        cap.set(cv2.CAP_PROP_FPS, fps)
+
+        ok, frame = cap.read()
+
+        if not ok or frame is None:
+            self._warn("Camera opened", "Camera opened but frame read failed")
+            return
+
+        actual_height, actual_width = frame.shape[:2]
+        device_detail = self._camera_device_detail(camera_index)
+
+        self._ok(
+            "Camera opened",
+            f"{device_detail} frame={actual_width}x{actual_height}, requested={width}x{height}@{fps}",
+        )
+
+    except Exception as exc:
+        self._fail("Camera opened", str(exc))
+
+    finally:
+        if cap is not None:
+            try:
+                cap.release()
+            except Exception:
+                logger.debug("Camera release failed during health check", exc_info=True)
+
+def _check_video_file(self) -> None:
+    """Check if configured video file exists."""
+    try:
+        video_path = self._resolve_config_path("video.path", "videos/selamlama.mp4")
+
+        if not video_path.exists():
+            self._warn("Video found", f"Not found: {video_path}")
+            return
+
+        if not video_path.is_file():
+            self._fail("Video found", f"Path is not a file: {video_path}")
+            return
+
+        size_mb = video_path.stat().st_size / (1024 * 1024)
+
+        if size_mb <= 0:
+            self._fail("Video found", f"File is empty: {video_path}")
+            return
+
+        self._ok("Video found", f"{video_path} ({size_mb:.1f} MB)")
+
+    except Exception as exc:
+        self._fail("Video found", str(exc))
+
+def _check_admin_port(self) -> None:
+    """Check if admin panel port can be bound."""
+    if not self._config.get("admin.enabled", True):
+        self._ok("Admin panel", "Disabled in config")
+        return
+
+    host = str(self._config.get("admin.host", "0.0.0.0")).strip() or "0.0.0.0"
+    port = self._safe_int(self._config.get("admin.port", 8080), 8080, minimum=1, maximum=65535)
+
+    bind_host = host
+
+    if host in {"0.0.0.0", "::"}:
+        bind_host = "0.0.0.0"
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((bind_host, port))
+
+        self._ok("Admin panel", f"Port {port} is available on {host}")
+
+    except OSError as exc:
+        self._warn("Admin panel", f"Port {port} may already be in use: {exc}")
+    except Exception as exc:
+        self._warn("Admin panel", f"Port check failed: {exc}")
+
+def _check_venv(self) -> None:
+    """Check virtual environment path for systemd service."""
+    expected_venv_python = Path("/opt/modInteractive/venv/bin/python")
+    old_venv_python = Path("/opt/modInteractive/.venv/bin/python")
+
+    if expected_venv_python.is_file():
+        self._ok("Virtualenv path", str(expected_venv_python))
+        return
+
+    if old_venv_python.is_file():
+        self._warn(
+            "Virtualenv path",
+            f"{old_venv_python} exists, but expected {expected_venv_python}",
+        )
+        return
+
+    if hasattr(sys, "real_prefix") or sys.prefix != getattr(sys, "base_prefix", sys.prefix):
+        self._ok("Virtualenv path", f"Running inside venv: {sys.prefix}")
+        return
+
+    self._warn("Virtualenv path", "Not installed yet or not running inside a virtualenv")
+
+def _resolve_config_path(self, key_path: str, default: str) -> Path:
+    """Resolve a config path relative to the config file directory."""
+    if hasattr(self._config, "resolve_path"):
+        return self._config.resolve_path(key_path, default)
+
+    raw_path = str(self._config.get(key_path, default))
+    path = Path(raw_path).expanduser()
+
+    if not path.is_absolute():
+        base_dir = getattr(self._config, "base_dir", Path.cwd())
+        path = Path(base_dir) / path
+
+    return path.resolve()
+
+def _normalize_camera_index(self, raw_index: Any) -> Any:
+    """Normalize camera index while allowing device paths."""
+    if isinstance(raw_index, int):
+        return raw_index
+
+    if isinstance(raw_index, str):
+        value = raw_index.strip()
+
+        if value.isdigit():
+            return int(value)
+
+        return value
+
+    try:
+        return int(raw_index)
+    except (TypeError, ValueError):
+        return 0
+
+def _camera_device_detail(self, camera_index: Any) -> str:
+    """Return human-friendly camera device detail."""
+    if isinstance(camera_index, int):
+        device_path = Path(f"/dev/video{camera_index}")
+
+        if device_path.exists():
+            return str(device_path)
+
+        return f"index={camera_index}"
+
+    return str(camera_index)
+
+def _safe_int(
+    self,
+    value: Any,
+    default: int,
+    minimum: Optional[int] = None,
+    maximum: Optional[int] = None,
+) -> int:
+    """Convert value to int with optional bounds."""
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        number = default
+
+    if minimum is not None and number < minimum:
+        number = minimum
+
+    if maximum is not None and number > maximum:
+        number = maximum
+
+    return number
