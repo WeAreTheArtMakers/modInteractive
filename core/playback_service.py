@@ -1,6 +1,7 @@
 """Video playback service with mpv and fade transitions.
 
 Handles hardware-accelerated video playback with GPU shader-based fade transitions.
+Supports Raspberry Pi 5 hardware decoding and video rotation.
 """
 
 from __future__ import annotations
@@ -23,7 +24,8 @@ logger = logging.getLogger(__name__)
 class PlaybackService:
     """Video playback service using mpv for hardware-accelerated rendering.
 
-    Manages fade-in/out transitions, playlist engine, and playback controls.
+    Manages fade-in/out transitions, playlist engine, playback controls,
+    and video rotation. Optimized for Raspberry Pi 5 with v4l2m2m hwdec.
     """
 
     def __init__(
@@ -64,6 +66,12 @@ class PlaybackService:
         self._monitor_task: Optional[asyncio.Task[None]] = None
         self._fade_script_path: Optional[Path] = None
 
+        # Video rotation (degrees: 0, 90, 180, 270)
+        self._rotation: int = 0
+
+        # Detect Pi5 platform
+        self._is_pi5 = self._detect_pi5()
+
     async def start(self) -> bool:
         """Start playback service.
 
@@ -79,9 +87,11 @@ class PlaybackService:
         # Create fade transition lua script
         self._fade_script_path = await self._create_fade_script()
 
+        hwdec = "v4l2m2m" if self._is_pi5 else "no"
         logger.info(
             f"Playback service started (mode: {self._playback_mode}, "
-            f"fade_in: {self._fade_in_duration}s, fade_out: {self._fade_out_duration}s)"
+            f"fade_in: {self._fade_in_duration}s, fade_out: {self._fade_out_duration}s, "
+            f"hwdec: {hwdec})"
         )
         return True
 
@@ -160,8 +170,24 @@ class PlaybackService:
             })
         return playlist
 
+    def set_rotation(self, degrees: int) -> None:
+        """Set video rotation.
+
+        Args:
+            degrees: Rotation in degrees (0, 90, 180, 270)
+        """
+        valid = [0, 90, 180, 270]
+        if degrees in valid:
+            self._rotation = degrees
+            logger.info(f"Video rotation set to {degrees}°")
+
+    @property
+    def rotation(self) -> int:
+        """Get current video rotation."""
+        return self._rotation
+
     async def play_video(self, video_path: Optional[str] = None) -> bool:
-        """Play a video with fade-in transition.
+        """Play a video with fade-in transition and Pi5 hwdec.
 
         Args:
             video_path: Path to video file (None for next in playlist)
@@ -183,6 +209,7 @@ class PlaybackService:
         await self.stop_playback()
 
         try:
+            # Base mpv args with Pi5 hardware decoding
             mpv_args = [
                 "mpv",
                 "--no-terminal",
@@ -190,21 +217,43 @@ class PlaybackService:
                 "--no-osc",
                 "--no-osd-bar",
                 "--no-border",
+                "--keepaspect-window",
                 f"--volume={self._volume}",
-                f"--start={self._fade_in_duration}",
             ]
 
+            # Pi5 hardware acceleration via v4l2m2m
+            if self._is_pi5:
+                mpv_args.extend([
+                    "--hwdec=v4l2m2m",
+                    "--vo=gpu-next",
+                    "--gpu-context=drm",
+                    "--hwdec-codecs=all",
+                ])
+            else:
+                mpv_args.append("--hwdec=no")
+
+            # Fullscreen
             if self._fullscreen:
                 mpv_args.extend(["--fs", "--fs-screen=0"])
 
+            # Loop
             if self._loop_videos:
                 mpv_args.append("--loop-file=inf")
 
-            # Add fade shader
+            # Video rotation support
+            if self._rotation != 0:
+                mpv_args.append(f"--video-rotate={self._rotation}")
+
+            # Fade script
             if self._fade_script_path and self._fade_script_path.exists():
                 mpv_args.append(f"--script={self._fade_script_path}")
 
+            # Auto-fit to screen with letterbox for aspect ratio
+            mpv_args.extend(["--video-fit=letterbox", "--keepaspect=yes"])
+
             mpv_args.append(video_path)
+
+            logger.debug(f"mpv args: {' '.join(mpv_args)}")
 
             self._mpv_process = subprocess.Popen(
                 mpv_args,
@@ -251,7 +300,6 @@ class PlaybackService:
     async def stop_playback(self) -> None:
         """Stop current video playback with fade-out."""
         if self._mpv_process and self._playing:
-            # Emit fade-out started
             await self._event_bus.publish(
                 Event(
                     event_type=SystemEvents.FADE_OUT_STARTED,
@@ -261,7 +309,6 @@ class PlaybackService:
                 )
             )
 
-            # Send quit to mpv process
             try:
                 self._mpv_process.send_signal(signal.SIGTERM)
                 self._mpv_process.wait(timeout=5)
@@ -274,7 +321,6 @@ class PlaybackService:
             self._playing = False
             self._current_video = None
 
-            # Emit fade-out completed
             await self._event_bus.publish(
                 Event(
                     event_type=SystemEvents.FADE_OUT_COMPLETED,
@@ -352,7 +398,6 @@ class PlaybackService:
                 if self._mpv_process and self._playing:
                     ret = self._mpv_process.poll()
                     if ret is not None:
-                        # Playback completed
                         self._playing = False
                         self._mpv_process = None
 
@@ -368,7 +413,6 @@ class PlaybackService:
                             )
                         )
 
-                        # Handle fade-out completion
                         await asyncio.sleep(self._fade_out_duration)
                         await self._event_bus.publish(
                             Event(
@@ -436,3 +480,25 @@ mp.register_event("file-loaded", fade_in)
         except Exception as e:
             logger.error(f"Failed to create fade script: {e}")
             return None
+
+    @staticmethod
+    def _detect_pi5() -> bool:
+        """Detect if running on Raspberry Pi 5.
+
+        Returns:
+            True if running on Pi5
+        """
+        try:
+            if os.path.exists("/proc/device-tree/model"):
+                with open("/proc/device-tree/model", "r") as f:
+                    model = f.read().strip().lower()
+                    if "raspberry pi 5" in model:
+                        return True
+            if os.path.exists("/sys/firmware/devicetree/base/model"):
+                with open("/sys/firmware/devicetree/base/model", "r") as f:
+                    model = f.read().strip().lower()
+                    if "bcm2712" in model or "raspberry pi 5" in model:
+                        return True
+        except Exception:
+            pass
+        return False

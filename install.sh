@@ -181,7 +181,6 @@ install_python_requirements() {
 
     # Core ML dependencies (install numpy first)
     pip_install numpy>=1.24.0
-    pip_install opencv-python-headless>=4.8.0
     pip_install "opencv-python-headless>=4.8.0"
     pip_install ultralytics>=8.0.0
     pip_install PySide6>=6.5.0

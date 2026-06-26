@@ -1,15 +1,17 @@
-"""Camera service for USB webcam management.
+"""Camera service for USB webcam and Pi5 camera management.
 
-Handles camera input, auto-detection, reconnection, and frame processing.
+Handles camera input, auto-detection of /dev/video* devices,
+reconnection, and frame processing.
 """
 
 from __future__ import annotations
 
 import asyncio
+import glob
 import logging
+import os
 import time
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -18,14 +20,12 @@ from core.event_bus import Event, EventBus, EventPriority, SystemEvents
 
 logger = logging.getLogger(__name__)
 
-FrameCallback = Callable[[np.ndarray], None]
-
 
 class CameraService:
-    """USB webcam management service.
+    """USB webcam / Pi5 camera management service.
 
-    Handles camera auto-detection, frame capture, and reconnection.
-    All frames are published via event bus.
+    Handles camera auto-detection (scans /dev/video* on Pi5),
+    frame capture, and reconnection. All frames published via event bus.
     """
 
     def __init__(
@@ -36,13 +36,13 @@ class CameraService:
         height: int = 480,
         fps: int = 15,
         auto_reconnect: bool = True,
-        reconnect_interval: int = 2,
+        reconnect_interval: int = 3,
     ) -> None:
         """Initialize camera service.
 
         Args:
             event_bus: System event bus
-            device_id: Camera device ID
+            device_id: Camera device ID or path (int or '/dev/video0')
             width: Capture width in pixels
             height: Capture height in pixels
             fps: Target frames per second
@@ -66,13 +66,12 @@ class CameraService:
         self._last_frame_time = 0.0
         self._brightness: float = 0.0
         self._contrast: float = 0.0
-        self._frame_lock = asyncio.Lock()
 
         # Available cameras cache
         self._available_cameras: List[Dict[str, Any]] = []
 
     async def start(self) -> bool:
-        """Start camera service.
+        """Start camera service with auto-detection.
 
         Returns:
             True if camera started successfully
@@ -81,6 +80,13 @@ class CameraService:
             return True
 
         self._running = True
+
+        # Auto-detect camera on start
+        detected = self.scan_cameras()
+        if detected:
+            self._device_id = detected[0]["device_id"]
+            logger.info(f"Auto-detected camera: device={self._device_id}")
+
         success = await self._connect()
 
         if success:
@@ -90,7 +96,7 @@ class CameraService:
                 f"resolution={self._width}x{self._height}, fps={self._target_fps}"
             )
         else:
-            logger.error("Camera service failed to start")
+            logger.warning("Camera not available, will auto-retry")
 
         return success
 
@@ -170,7 +176,10 @@ class CameraService:
         return (self._width, self._height)
 
     def scan_cameras(self, max_devices: int = 10) -> List[Dict[str, Any]]:
-        """Scan for available USB cameras.
+        """Scan for available cameras (USB webcam + Pi5 camera).
+
+        On Pi5, scans /dev/video* devices and tests each one.
+        Falls back to OpenCV default detection.
 
         Args:
             max_devices: Maximum number of devices to check
@@ -179,12 +188,44 @@ class CameraService:
             List of available camera info dictionaries
         """
         cameras = []
+        tested_devices = set()
+
+        # First try: scan /dev/video* on Linux (Pi5)
+        try:
+            video_devices = sorted(glob.glob("/dev/video*"))
+            for dev in video_devices:
+                try:
+                    dev_num = int(dev.replace("/dev/video", ""))
+                    if dev_num in tested_devices:
+                        continue
+                    tested_devices.add(dev_num)
+
+                    cap = cv2.VideoCapture(dev_num, cv2.CAP_V4L2)
+                    if cap.isOpened():
+                        info = {
+                            "device_id": dev_num,
+                            "device_path": dev,
+                            "width": int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                            "height": int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+                            "fps": cap.get(cv2.CAP_PROP_FPS),
+                        }
+                        cameras.append(info)
+                        cap.release()
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+        # Second try: OpenCV standard scan
         for device_id in range(max_devices):
+            if device_id in tested_devices:
+                continue
             try:
-                cap = cv2.VideoCapture(device_id, cv2.CAP_V4L2)
+                cap = cv2.VideoCapture(device_id)
                 if cap.isOpened():
                     info = {
                         "device_id": device_id,
+                        "device_path": f"/dev/video{device_id}" if os.name == "posix" else str(device_id),
                         "width": int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
                         "height": int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
                         "fps": cap.get(cv2.CAP_PROP_FPS),
@@ -193,11 +234,28 @@ class CameraService:
                     cap.release()
             except Exception:
                 continue
+
         self._available_cameras = cameras
+
+        if cameras:
+            logger.info(f"Detected {len(cameras)} camera(s): {[c['device_id'] for c in cameras]}")
+        else:
+            logger.warning("No cameras detected")
+
         return cameras
+
+    def get_available_cameras(self) -> List[Dict[str, Any]]:
+        """Get list of detected cameras.
+
+        Returns:
+            List of camera info dictionaries
+        """
+        return self._available_cameras
 
     async def _connect(self) -> bool:
         """Connect to camera device.
+
+        Tries V4L2 first (Pi5), then falls back to generic.
 
         Returns:
             True if connection succeeded
@@ -206,6 +264,7 @@ class CameraService:
             if self._cap:
                 self._cap.release()
 
+            # Try V4L2 first (Linux/Pi5)
             self._cap = cv2.VideoCapture(self._device_id, cv2.CAP_V4L2)
             if not self._cap.isOpened():
                 self._cap = cv2.VideoCapture(self._device_id)
@@ -244,7 +303,7 @@ class CameraService:
             return True
 
         except Exception as e:
-            logger.error(f"Camera connection failed: {e}")
+            logger.warning(f"Camera connection failed: {e}")
             self._connected = False
             await self._event_bus.publish(
                 Event(
@@ -264,15 +323,15 @@ class CameraService:
         self._connected = False
 
     async def _capture_loop(self) -> None:
-        """Main frame capture loop."""
+        """Main frame capture loop with auto-reconnect."""
         frame_interval = 1.0 / self._target_fps
-        last_frame_time = 0.0
 
         while self._running:
             try:
                 if not self._connected:
                     if self._auto_reconnect:
                         logger.info("Attempting camera reconnection...")
+                        self.scan_cameras()
                         success = await self._connect()
                         if success:
                             continue
@@ -297,13 +356,11 @@ class CameraService:
 
                 self._frame_count += 1
 
-                # Calculate FPS
                 now = time.time()
                 if self._last_frame_time > 0:
                     self._fps = 1.0 / (now - self._last_frame_time)
                 self._last_frame_time = now
 
-                # Publish frame via event bus
                 await self._event_bus.publish(
                     Event(
                         event_type=SystemEvents.CAMERA_FRAME_READY,
@@ -320,7 +377,6 @@ class CameraService:
                     )
                 )
 
-                # Throttle to target FPS
                 elapsed = time.time() - now
                 sleep_time = max(0, frame_interval - elapsed)
                 if sleep_time > 0:
