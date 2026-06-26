@@ -123,6 +123,46 @@ def get_status() -> Any:
     return jsonify(status)
 
 
+@app.route("/api/test-video", methods=["POST"])
+def test_video() -> Any:
+    """Test video playback using mpv.
+
+    Returns:
+        Success status
+    """
+    import shutil
+    import subprocess
+
+    mpv_path = shutil.which("mpv")
+    if not mpv_path:
+        return jsonify({"error": "mpv not installed"}), 500
+
+    video_path = _config_data.get("video", {}).get("path", "videos/selamlama.mp4")
+    abs_path = os.path.abspath(video_path)
+
+    if not os.path.exists(abs_path):
+        return jsonify({"error": f"Video not found: {abs_path}"}), 404
+
+    fullscreen = _config_data.get("video", {}).get("fullscreen", True)
+
+    try:
+        cmd = [mpv_path]
+        if fullscreen:
+            cmd.append("--fs")
+        cmd.append("--keep-open=no")
+        cmd.append("--really-quiet")
+        cmd.append(abs_path)
+
+        subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return jsonify({"status": "ok", "message": f"Playing: {abs_path}"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/logs")
 def get_logs() -> Any:
     """Get recent log entries.

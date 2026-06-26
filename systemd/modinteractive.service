@@ -6,15 +6,18 @@ Wants=graphical.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/modInteractive
-ExecStart=/opt/modInteractive/venv/bin/python /opt/modInteractive/main.py
-Restart=always
-RestartSec=5
 User=pi
 Group=pi
+WorkingDirectory=/opt/modInteractive
 Environment=PYTHONUNBUFFERED=1
 Environment=DISPLAY=:0
 Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=PATH=/opt/modInteractive/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/opt/modInteractive/venv/bin/python /opt/modInteractive/main.py
+Restart=always
+RestartSec=5
+TimeoutStartSec=30
+TimeoutStopSec=10
 StandardOutput=journal
 StandardError=journal
 

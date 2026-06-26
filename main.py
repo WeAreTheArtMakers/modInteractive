@@ -96,6 +96,13 @@ def main() -> None:
     # Create application
     app = Application(config_path=args.config)
 
+    # Start admin panel (optional)
+    try:
+        from app import _start_admin_thread
+        _admin_thread = _start_admin_thread(app._config, args.config)
+    except Exception:
+        pass
+
     # Signal handling
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)

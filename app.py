@@ -22,6 +22,34 @@ from core.player import Player
 logger = logging.getLogger("modInteractive.app")
 
 
+def _start_admin_thread(config: Config, config_path: str) -> Optional[object]:
+    """Start admin panel in background thread if enabled.
+
+    Args:
+        config: Application config
+        config_path: Path to config file
+
+    Returns:
+        Admin thread or None
+    """
+    if not config.get("admin.enabled", True):
+        logger.info("Admin panel disabled in config")
+        return None
+
+    try:
+        from admin.server import start_admin_thread  # type: ignore
+        thread = start_admin_thread(config, config_path)
+        logger.info("Admin panel started on port %d",
+                     config.get("admin.port", 8080))
+        return thread
+    except ImportError as e:
+        logger.warning("Admin panel not available (flask not installed?): %s", e)
+    except Exception as e:
+        logger.warning("Admin panel failed to start: %s", e)
+
+    return None
+
+
 class Application:
     """Main application for the interactive kiosk system."""
 

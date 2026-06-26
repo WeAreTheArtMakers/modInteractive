@@ -9,9 +9,9 @@
 # This script is idempotent: running it multiple times is safe.
 #
 # It installs:
-#   - System packages: python3, python3-venv, python3-opencv, mpv, v4l-utils
+#   - System packages: python3, python3-venv, python3-opencv, python3-numpy, mpv, v4l-utils
 #   - Virtual environment at /opt/modInteractive/venv (with --system-site-packages)
-#   - Python dependencies
+#   - Python dependencies from requirements.txt
 #   - Systemd service (enabled but not started)
 #===============================================================================
 
@@ -32,6 +32,7 @@ error()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 # Configuration
 INSTALL_DIR="/opt/modInteractive"
 VENV_DIR="${INSTALL_DIR}/venv"
+REQUIREMENTS="${INSTALL_DIR}/requirements.txt"
 SERVICE_NAME="modinteractive"
 SERVICE_SRC="systemd/${SERVICE_NAME}.service"
 SERVICE_DST="/etc/systemd/system/${SERVICE_NAME}.service"
@@ -80,11 +81,12 @@ echo ""
 #------------------------------------------------------------------------------
 info "Step 2/6: Creating directory structure..."
 mkdir -p "${INSTALL_DIR}"
-mkdir -p "${INSTALL_DIR}/logs"
-mkdir -p "${INSTALL_DIR}/videos"
 mkdir -p "${INSTALL_DIR}/core"
 mkdir -p "${INSTALL_DIR}/admin/templates"
 mkdir -p "${INSTALL_DIR}/admin/static"
+mkdir -p "${INSTALL_DIR}/systemd"
+mkdir -p "${INSTALL_DIR}/videos"
+mkdir -p "${INSTALL_DIR}/logs"
 success "Directories created"
 echo ""
 
@@ -109,7 +111,7 @@ if [[ -d "${SOURCE_DIR}/admin" ]]; then
     cp -r "${SOURCE_DIR}/admin/"* "${INSTALL_DIR}/admin/"
 fi
 
-# Systemd service
+# Systemd service file (to both service dir and local copy)
 if [[ -f "${SOURCE_DIR}/${SERVICE_SRC}" ]]; then
     cp "${SOURCE_DIR}/${SERVICE_SRC}" "${INSTALL_DIR}/systemd/"
 fi
@@ -163,7 +165,7 @@ if [[ -f "${SOURCE_DIR}/${SERVICE_SRC}" ]]; then
     cp "${SOURCE_DIR}/${SERVICE_SRC}" "${SERVICE_DST}"
     chmod 644 "${SERVICE_DST}"
 
-    # Update user/group
+    # Update user/group in service file
     REAL_USER="${SUDO_USER:-pi}"
     REAL_GROUP=$(id -gn "${REAL_USER}" 2>/dev/null || echo "pi")
     REAL_UID=$(id -u "${REAL_USER}" 2>/dev/null || echo "1000")
@@ -171,6 +173,9 @@ if [[ -f "${SOURCE_DIR}/${SERVICE_SRC}" ]]; then
     sed -i "s/User=pi/User=${REAL_USER}/" "${SERVICE_DST}"
     sed -i "s/Group=pi/Group=${REAL_GROUP}/" "${SERVICE_DST}"
     sed -i "s|/run/user/1000|/run/user/${REAL_UID}|" "${SERVICE_DST}"
+
+    # Fix virtualenv path if .venv was used (ensure consistency)
+    sed -i "s|/opt/modInteractive/.venv|${VENV_DIR}|g" "${SERVICE_DST}"
 
     systemctl daemon-reload
     systemctl enable "${SERVICE_NAME}"
