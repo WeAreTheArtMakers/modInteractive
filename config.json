@@ -1,7 +1,8 @@
 {
   "system": {
     "log_level": "INFO",
-    "project_name": "modInteractive"
+    "project_name": "modInteractive",
+    "version": "1.0.0"
   },
   "camera": {
     "index": 0,

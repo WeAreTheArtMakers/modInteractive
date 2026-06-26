@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
@@ -17,139 +16,136 @@
             <div class="header-badge">Admin Panel</div>
         </header>
 
-```
-    <nav class="tabs" aria-label="Admin panel tabs">
-        <button type="button" class="tab active" data-tab="config">Configuration</button>
-        <button type="button" class="tab" data-tab="status">Status</button>
-        <button type="button" class="tab" data-tab="logs">Logs</button>
-    </nav>
+        <nav class="tabs" aria-label="Admin panel tabs">
+            <button type="button" class="tab active" data-tab="config">Configuration</button>
+            <button type="button" class="tab" data-tab="status">Status</button>
+            <button type="button" class="tab" data-tab="logs">Logs</button>
+        </nav>
 
-    <section id="config" class="tab-content active">
-        <div class="section-header">
-            <h2>Configuration</h2>
-            <p>Camera, motion detection and video playback settings.</p>
-        </div>
+        <section id="config" class="tab-content active">
+            <div class="section-header">
+                <h2>Configuration</h2>
+                <p>Camera, motion detection and video playback settings.</p>
+            </div>
 
-        <form id="config-form" autocomplete="off">
-            <fieldset>
-                <legend>Camera</legend>
+            <form id="config-form" autocomplete="off">
+                <fieldset>
+                    <legend>Camera</legend>
 
-                <label for="camera-index">
-                    Device Index
-                    <input type="number" name="camera.index" id="camera-index" min="0" max="20" step="1" inputmode="numeric">
-                </label>
-
-                <div class="form-row">
-                    <label for="camera-width">
-                        Width
-                        <input type="number" name="camera.width" id="camera-width" min="160" max="3840" step="1" inputmode="numeric" placeholder="640">
+                    <label for="camera-index">
+                        Device Index
+                        <input type="number" name="camera.index" id="camera-index" min="0" max="20" step="1" inputmode="numeric">
                     </label>
 
-                    <label for="camera-height">
-                        Height
-                        <input type="number" name="camera.height" id="camera-height" min="120" max="2160" step="1" inputmode="numeric" placeholder="480">
-                    </label>
-                </div>
+                    <div class="form-row">
+                        <label for="camera-width">
+                            Width
+                            <input type="number" name="camera.width" id="camera-width" min="160" max="3840" step="1" inputmode="numeric" placeholder="640">
+                        </label>
 
-                <label for="camera-fps">
-                    FPS
-                    <input type="number" name="camera.fps" id="camera-fps" min="1" max="60" step="1" inputmode="numeric">
-                </label>
-            </fieldset>
-
-            <fieldset>
-                <legend>Detection</legend>
-
-                <label for="motion-sensitivity">
-                    Motion Sensitivity
-                    <div class="range-row">
-                        <input type="range" name="detection.motion_sensitivity" id="motion-sensitivity" min="100" max="5000" step="100">
-                        <span id="motion-sensitivity-value">-</span>
+                        <label for="camera-height">
+                            Height
+                            <input type="number" name="camera.height" id="camera-height" min="120" max="2160" step="1" inputmode="numeric" placeholder="480">
+                        </label>
                     </div>
-                </label>
 
-                <label for="min-motion-area">
-                    Minimum Motion Area
-                    <input type="number" name="detection.min_motion_area" id="min-motion-area" min="100" max="100000" step="100" inputmode="numeric">
-                </label>
+                    <label for="camera-fps">
+                        FPS
+                        <input type="number" name="camera.fps" id="camera-fps" min="1" max="60" step="1" inputmode="numeric">
+                    </label>
+                </fieldset>
 
-                <div class="form-row">
-                    <label for="cooldown-seconds">
-                        Cooldown Seconds
-                        <input type="number" name="detection.cooldown_seconds" id="cooldown-seconds" min="0" max="600" step="1" inputmode="numeric">
+                <fieldset>
+                    <legend>Detection</legend>
+
+                    <label for="motion-sensitivity">
+                        Motion Sensitivity
+                        <div class="range-row">
+                            <input type="range" name="detection.motion_sensitivity" id="motion-sensitivity" min="100" max="5000" step="100">
+                            <span id="motion-sensitivity-value">-</span>
+                        </div>
                     </label>
 
-                    <label for="frame-skip">
-                        Frame Skip
-                        <input type="number" name="detection.frame_skip" id="frame-skip" min="1" max="30" step="1" inputmode="numeric">
+                    <label for="min-motion-area">
+                        Minimum Motion Area
+                        <input type="number" name="detection.min_motion_area" id="min-motion-area" min="100" max="100000" step="100" inputmode="numeric">
                     </label>
+
+                    <div class="form-row">
+                        <label for="cooldown-seconds">
+                            Cooldown Seconds
+                            <input type="number" name="detection.cooldown_seconds" id="cooldown-seconds" min="0" max="600" step="1" inputmode="numeric">
+                        </label>
+
+                        <label for="frame-skip">
+                            Frame Skip
+                            <input type="number" name="detection.frame_skip" id="frame-skip" min="1" max="30" step="1" inputmode="numeric">
+                        </label>
+                    </div>
+                </fieldset>
+
+                <fieldset>
+                    <legend>Video</legend>
+
+                    <label for="video-path">
+                        Video Path
+                        <input type="text" name="video.path" id="video-path" placeholder="videos/selamlama.mp4">
+                    </label>
+
+                    <label for="video-volume">
+                        Volume
+                        <input type="number" name="video.volume" id="video-volume" min="0" max="100" step="1" inputmode="numeric">
+                    </label>
+
+                    <label class="checkbox-label" for="video-fullscreen">
+                        <input type="checkbox" name="video.fullscreen" id="video-fullscreen">
+                        <span>Fullscreen playback</span>
+                    </label>
+                </fieldset>
+
+                <div class="actions">
+                    <button type="submit" class="btn btn-primary">Save Configuration</button>
+                    <button type="button" class="btn btn-secondary" id="test-video">Test Video</button>
                 </div>
-            </fieldset>
 
-            <fieldset>
-                <legend>Video</legend>
+                <div id="save-status" class="status-msg" role="status" aria-live="polite"></div>
+            </form>
+        </section>
 
-                <label for="video-path">
-                    Video Path
-                    <input type="text" name="video.path" id="video-path" placeholder="videos/selamlama.mp4">
-                </label>
+        <section id="status" class="tab-content">
+            <div class="section-header">
+                <h2>System Status</h2>
+                <p>Camera, video player, OpenCV and system state.</p>
+            </div>
 
-                <label for="video-volume">
-                    Volume
-                    <input type="number" name="video.volume" id="video-volume" min="0" max="100" step="1" inputmode="numeric">
-                </label>
-
-                <label class="checkbox-label" for="video-fullscreen">
-                    <input type="checkbox" name="video.fullscreen" id="video-fullscreen">
-                    <span>Fullscreen playback</span>
-                </label>
-            </fieldset>
+            <div id="status-content" class="status-grid">
+                <div class="status-item">
+                    <span class="label">Loading...</span>
+                    <span class="value">Please wait</span>
+                </div>
+            </div>
 
             <div class="actions">
-                <button type="submit" class="btn btn-primary">Save Configuration</button>
-                <button type="button" class="btn btn-secondary" id="test-video">Test Video</button>
+                <button type="button" class="btn btn-secondary" id="refresh-status">Refresh Status</button>
+            </div>
+        </section>
+
+        <section id="logs" class="tab-content">
+            <div class="section-header">
+                <h2>Logs</h2>
+                <p>Recent application logs.</p>
             </div>
 
-            <div id="save-status" class="status-msg" role="status" aria-live="polite"></div>
-        </form>
-    </section>
-
-    <section id="status" class="tab-content">
-        <div class="section-header">
-            <h2>System Status</h2>
-            <p>Camera, video player, OpenCV and system state.</p>
-        </div>
-
-        <div id="status-content" class="status-grid">
-            <div class="status-item">
-                <span class="label">Loading...</span>
-                <span class="value">Please wait</span>
+            <div id="log-container">
+                <pre id="log-content">Loading logs...</pre>
             </div>
-        </div>
 
-        <div class="actions">
-            <button type="button" class="btn btn-secondary" id="refresh-status">Refresh Status</button>
-        </div>
-    </section>
+            <div class="actions">
+                <button type="button" class="btn btn-secondary" id="refresh-logs">Refresh Logs</button>
+            </div>
+        </section>
+    </main>
 
-    <section id="logs" class="tab-content">
-        <div class="section-header">
-            <h2>Logs</h2>
-            <p>Recent application logs.</p>
-        </div>
-
-        <div id="log-container">
-            <pre id="log-content">Loading logs...</pre>
-        </div>
-
-        <div class="actions">
-            <button type="button" class="btn btn-secondary" id="refresh-logs">Refresh Logs</button>
-        </div>
-    </section>
-</main>
-
-<script src="/static/app.js"></script>
-```
-
+    <script src="/static/app.js"></script>
 </body>
 </html>

@@ -20,23 +20,23 @@ SERVICE_DST="/etc/systemd/system/${SERVICE_NAME}.service"
 PYTHON="python3"
 
 if [[ "${EUID}" -ne 0 ]]; then
-error "This script must be run as root. Use: sudo bash install.sh"
-exit 1
+    error "This script must be run as root. Use: sudo bash install.sh"
+    exit 1
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_DIR="${SCRIPT_DIR}"
 
 if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
-REAL_USER="${SUDO_USER}"
+    REAL_USER="${SUDO_USER}"
 elif id -u pi >/dev/null 2>&1; then
-REAL_USER="pi"
+    REAL_USER="pi"
 else
-REAL_USER="$(awk -F: '$3 >= 1000 && $3 < 65534 { print $1; exit }' /etc/passwd)"
+    REAL_USER="$(awk -F: '$3 >= 1000 && $3 < 65534 { print $1; exit }' /etc/passwd)"
 fi
 
 if [[ -z "${REAL_USER}" ]]; then
-REAL_USER="root"
+    REAL_USER="root"
 fi
 
 REAL_GROUP="$(id -gn "${REAL_USER}" 2>/dev/null || echo "${REAL_USER}")"
@@ -55,20 +55,20 @@ info "Virtualenv: ${VENV_DIR}"
 info "Service user: ${REAL_USER}:${REAL_GROUP}"
 echo ""
 
-info "Step 1/6: Installing system dependencies..."
+info "Step 1/6: Installing system dependencies"
 apt-get update
-apt-get install -y 
-python3 
-python3-venv 
-python3-pip 
-python3-opencv 
-python3-numpy 
-mpv 
-v4l-utils
+apt-get install -y \
+    python3 \
+    python3-venv \
+    python3-pip \
+    python3-opencv \
+    python3-numpy \
+    mpv \
+    v4l-utils
 success "System dependencies installed"
 echo ""
 
-info "Step 2/6: Creating directory structure..."
+info "Step 2/6: Creating directory structure"
 mkdir -p "${INSTALL_DIR}"
 mkdir -p "${INSTALL_DIR}/core"
 mkdir -p "${INSTALL_DIR}/admin/templates"
@@ -79,13 +79,13 @@ mkdir -p "${INSTALL_DIR}/logs"
 success "Directories created"
 echo ""
 
-info "Step 3/6: Copying application files..."
+info "Step 3/6: Copying application files"
 
 for required_file in main.py app.py config.json; do
-if [[ ! -f "${SOURCE_DIR}/${required_file}" ]]; then
-error "Required file missing: ${SOURCE_DIR}/${required_file}"
-exit 1
-fi
+    if [[ ! -f "${SOURCE_DIR}/${required_file}" ]]; then
+        error "Required file missing: ${SOURCE_DIR}/${required_file}"
+        exit 1
+    fi
 done
 
 cp "${SOURCE_DIR}/main.py" "${INSTALL_DIR}/main.py"
@@ -93,63 +93,63 @@ cp "${SOURCE_DIR}/app.py" "${INSTALL_DIR}/app.py"
 cp "${SOURCE_DIR}/config.json" "${INSTALL_DIR}/config.json"
 
 if [[ -f "${SOURCE_DIR}/requirements.txt" ]]; then
-cp "${SOURCE_DIR}/requirements.txt" "${INSTALL_DIR}/requirements.txt"
+    cp "${SOURCE_DIR}/requirements.txt" "${INSTALL_DIR}/requirements.txt"
 else
-cat > "${INSTALL_DIR}/requirements.txt" <<'EOF'
+    cat > "${INSTALL_DIR}/requirements.txt" <<'EOF'
 flask>=2.3.0
 EOF
 fi
 
 if [[ -d "${SOURCE_DIR}/core" ]]; then
-cp -a "${SOURCE_DIR}/core/." "${INSTALL_DIR}/core/"
+    cp -a "${SOURCE_DIR}/core/." "${INSTALL_DIR}/core/"
 else
-error "Required directory missing: ${SOURCE_DIR}/core"
-exit 1
+    error "Required directory missing: ${SOURCE_DIR}/core"
+    exit 1
 fi
 
 if [[ -d "${SOURCE_DIR}/admin/templates" ]]; then
-cp -a "${SOURCE_DIR}/admin/templates/." "${INSTALL_DIR}/admin/templates/"
+    cp -a "${SOURCE_DIR}/admin/templates/." "${INSTALL_DIR}/admin/templates/"
 fi
 
 if [[ -d "${SOURCE_DIR}/admin/static" ]]; then
-cp -a "${SOURCE_DIR}/admin/static/." "${INSTALL_DIR}/admin/static/"
+    cp -a "${SOURCE_DIR}/admin/static/." "${INSTALL_DIR}/admin/static/"
 fi
 
 if [[ -d "${SOURCE_DIR}/videos" ]]; then
-find "${SOURCE_DIR}/videos" -maxdepth 1 -type f ( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.webm" ) -exec cp -a {} "${INSTALL_DIR}/videos/" ;
+    find "${SOURCE_DIR}/videos" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.webm" \) -exec cp -a {} "${INSTALL_DIR}/videos/" \;
 fi
 
 chown -R "${REAL_USER}:${REAL_GROUP}" "${INSTALL_DIR}" 2>/dev/null || true
-find "${INSTALL_DIR}" -type d -exec chmod 755 {} ;
-find "${INSTALL_DIR}" -type f -exec chmod 644 {} ;
+find "${INSTALL_DIR}" -type d -exec chmod 755 {} \;
+find "${INSTALL_DIR}" -type f -exec chmod 644 {} \;
 success "Application files copied"
 echo ""
 
-info "Step 4/6: Creating Python virtual environment..."
+info "Step 4/6: Creating Python virtual environment"
 
 if [[ ! -d "${VENV_DIR}" ]]; then
-"${PYTHON}" -m venv --system-site-packages "${VENV_DIR}"
-success "Virtual environment created"
+    "${PYTHON}" -m venv --system-site-packages "${VENV_DIR}"
+    success "Virtual environment created"
 else
-info "Virtual environment already exists"
+    info "Virtual environment already exists"
 fi
 
 "${VENV_DIR}/bin/python" -m pip install --upgrade pip
 success "Virtualenv ready: ${VENV_DIR}"
 echo ""
 
-info "Step 5/6: Installing Python dependencies..."
+info "Step 5/6: Installing Python dependencies"
 
 if [[ -s "${REQUIREMENTS}" ]]; then
-"${VENV_DIR}/bin/python" -m pip install -r "${REQUIREMENTS}"
+    "${VENV_DIR}/bin/python" -m pip install -r "${REQUIREMENTS}"
 else
-warning "requirements.txt is empty, skipping pip install"
+    warning "requirements.txt is empty, skipping pip install"
 fi
 
 success "Python dependencies installed"
 echo ""
 
-info "Step 6/6: Installing systemd service..."
+info "Step 6/6: Installing systemd service"
 
 cat > "${SERVICE_DST}" <<EOF
 [Unit]
@@ -162,12 +162,15 @@ Wants=graphical.target
 Type=simple
 User=${REAL_USER}
 Group=${REAL_GROUP}
+SupplementaryGroups=audio video render input
 WorkingDirectory=${INSTALL_DIR}
 ExecStart=${VENV_DIR}/bin/python ${INSTALL_DIR}/main.py
 Restart=always
 RestartSec=5
 TimeoutStartSec=30
 TimeoutStopSec=10
+KillSignal=SIGINT
+KillMode=control-group
 Environment=PYTHONUNBUFFERED=1
 Environment=DISPLAY=:0
 Environment=XDG_RUNTIME_DIR=/run/user/${REAL_UID}
@@ -185,9 +188,9 @@ systemctl enable "${SERVICE_NAME}"
 success "Service installed and enabled"
 echo ""
 
-if ! find "${INSTALL_DIR}/videos" -maxdepth 1 -type f ( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.webm" ) | grep -q .; then
-warning "No video files found in ${INSTALL_DIR}/videos"
-warning "Add a video file as ${INSTALL_DIR}/videos/selamlama.mp4 before starting"
+if ! find "${INSTALL_DIR}/videos" -maxdepth 1 -type f \( -iname "*.mp4" -o -iname "*.mov" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.webm" \) | grep -q .; then
+    warning "No video files found in ${INSTALL_DIR}/videos"
+    warning "Add a video file as ${INSTALL_DIR}/videos/selamlama.mp4 before starting"
 fi
 
 echo ""

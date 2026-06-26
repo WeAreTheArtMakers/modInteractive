@@ -1,162 +1,217 @@
-"""Camera module for modInteractive.
-
-Handles OpenCV camera initialization, frame capture,
-reconnection, and warmup.
-"""
-
 from __future__ import annotations
 
 import logging
+import platform
 import time
-from typing import Optional, Tuple
+from typing import Optional, Union
 
 import cv2
 import numpy as np
 
 logger = logging.getLogger("modInteractive.camera")
 
+CameraIndex = Union[int, str]
+
 
 class Camera:
-    """OpenCV camera wrapper with reconnection support."""
-
     def __init__(
         self,
-        index: int = 0,
+        index: CameraIndex = 0,
         width: int = 640,
         height: int = 480,
         fps: int = 15,
         warmup_frames: int = 30,
+        backend: str = "auto",
     ) -> None:
-        """Initialize camera configuration.
-
-        Args:
-            index: Camera device index
-            width: Capture width in pixels
-            height: Capture height in pixels
-            fps: Target frames per second
-            warmup_frames: Number of frames to discard on startup
-        """
-        self._index: int = index
-        self._width: int = width
-        self._height: int = height
-        self._fps: int = fps
-        self._warmup_frames: int = warmup_frames
+        self._index = index
+        self._width = max(1, int(width))
+        self._height = max(1, int(height))
+        self._fps = max(1, int(fps))
+        self._warmup_frames = max(0, int(warmup_frames))
+        self._backend = str(backend or "auto").lower().strip()
         self._cap: Optional[cv2.VideoCapture] = None
-        self._is_open: bool = False
-        self._frame_count: int = 0
-        self._error_count: int = 0
+        self._is_open = False
+        self._frame_count = 0
+        self._error_count = 0
+        self._opened_at = 0.0
+        self._actual_width = 0
+        self._actual_height = 0
+        self._actual_fps = 0.0
 
     def open(self) -> bool:
-        """Open the camera device.
-
-        Returns:
-            True if camera opened successfully
-        """
-        if self._is_open:
+        if self._is_open and self._cap is not None and self._cap.isOpened():
             return True
 
-        try:
-            self._cap = cv2.VideoCapture(self._index)
+        self.close()
 
-            if not self._cap.isOpened():
-                logger.error("Cannot open camera at index %d", self._index)
+        try:
+            self._cap = self._create_capture()
+
+            if self._cap is None or not self._cap.isOpened():
+                logger.error("Cannot open camera: index=%s backend=%s", self._index, self._backend)
                 self._cap = None
+                self._is_open = False
                 return False
 
-            # Set camera properties
-            self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, self._width)
-            self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self._height)
-            self._cap.set(cv2.CAP_PROP_FPS, self._fps)
-            self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-
-            # Warmup: discard initial frames for auto-exposure adjustment
-            logger.info("Camera warmup: discarding %d frames...",
-                        self._warmup_frames)
-            for i in range(self._warmup_frames):
-                self._cap.read()
+            self._configure_capture()
+            self._warmup()
 
             self._is_open = True
             self._frame_count = 0
             self._error_count = 0
-
-            actual_width = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            actual_height = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            self._opened_at = time.time()
+            self._actual_width = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            self._actual_height = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            self._actual_fps = float(self._cap.get(cv2.CAP_PROP_FPS))
 
             logger.info(
-                "Camera opened: index=%d, %dx%d @ %d fps",
-                self._index, actual_width, actual_height, self._fps,
+                "Camera opened: index=%s backend=%s actual=%dx%d fps=%.1f",
+                self._index,
+                self._backend,
+                self._actual_width,
+                self._actual_height,
+                self._actual_fps,
             )
             return True
 
-        except Exception as e:
-            logger.error("Camera open error: %s", e)
-            self._cap = None
+        except Exception:
+            logger.exception("Camera open error")
+            self.close()
             return False
 
     def read(self) -> Optional[np.ndarray]:
-        """Read a single frame from the camera.
-
-        Returns:
-            Frame as numpy array (BGR), or None on failure
-        """
         if not self._is_open or self._cap is None:
             return None
 
         try:
-            ret, frame = self._cap.read()
-            if not ret or frame is None:
-                self._error_count += 1
-                logger.warning("Camera read failed (%d errors)",
-                               self._error_count)
+            ok, frame = self._cap.read()
+
+            if not ok or frame is None or not isinstance(frame, np.ndarray) or frame.size == 0:
+                self._register_read_error()
                 return None
 
             self._frame_count += 1
             self._error_count = 0
             return frame
 
-        except Exception as e:
-            self._error_count += 1
-            logger.error("Camera read error: %s", e)
+        except Exception:
+            self._register_read_error()
+            logger.exception("Camera read error")
             return None
 
     def close(self) -> None:
-        """Release the camera device."""
         if self._cap is not None:
             try:
                 self._cap.release()
-                logger.info("Camera released")
-            except Exception as e:
-                logger.error("Camera release error: %s", e)
-            finally:
-                self._cap = None
-                self._is_open = False
+            except Exception:
+                logger.debug("Camera release failed", exc_info=True)
 
-    def reopen(self) -> bool:
-        """Close and reopen the camera.
+        self._cap = None
+        self._is_open = False
 
-        Returns:
-            True if reopen succeeded
-        """
+    def reopen(self, delay_seconds: float = 1.0) -> bool:
         self.close()
-        time.sleep(1)
+
+        if delay_seconds > 0:
+            time.sleep(delay_seconds)
+
         return self.open()
+
+    def _create_capture(self) -> cv2.VideoCapture:
+        backend_id = self._backend_id()
+
+        if backend_id is not None:
+            return cv2.VideoCapture(self._index, backend_id)
+
+        return cv2.VideoCapture(self._index)
+
+    def _backend_id(self) -> Optional[int]:
+        if self._backend == "v4l2":
+            return cv2.CAP_V4L2
+
+        if self._backend == "auto" and platform.system().lower() == "linux":
+            return cv2.CAP_V4L2
+
+        return None
+
+    def _configure_capture(self) -> None:
+        if self._cap is None:
+            return
+
+        self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, self._width)
+        self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self._height)
+        self._cap.set(cv2.CAP_PROP_FPS, self._fps)
+
+        try:
+            self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        except Exception:
+            logger.debug("Camera buffer size setting ignored", exc_info=True)
+
+    def _warmup(self) -> None:
+        if self._cap is None:
+            return
+
+        if self._warmup_frames <= 0:
+            return
+
+        logger.info("Camera warmup: discarding %d frames", self._warmup_frames)
+
+        for _ in range(self._warmup_frames):
+            self._cap.read()
+
+    def _register_read_error(self) -> None:
+        self._error_count += 1
+
+        if self._error_count <= 3 or self._error_count % 30 == 0:
+            logger.warning("Camera read failed (%d consecutive errors)", self._error_count)
 
     @property
     def is_open(self) -> bool:
-        """Check if camera is currently open."""
         return self._is_open
 
     @property
     def frame_count(self) -> int:
-        """Get total frames read."""
         return self._frame_count
 
     @property
     def error_count(self) -> int:
-        """Get consecutive read errors."""
         return self._error_count
 
     @property
-    def index(self) -> int:
-        """Get camera device index."""
+    def index(self) -> CameraIndex:
         return self._index
+
+    @property
+    def width(self) -> int:
+        return self._width
+
+    @property
+    def height(self) -> int:
+        return self._height
+
+    @property
+    def fps(self) -> int:
+        return self._fps
+
+    @property
+    def actual_width(self) -> int:
+        return self._actual_width
+
+    @property
+    def actual_height(self) -> int:
+        return self._actual_height
+
+    @property
+    def actual_fps(self) -> float:
+        return self._actual_fps
+
+    @property
+    def backend(self) -> str:
+        return self._backend
+
+    @property
+    def uptime_seconds(self) -> float:
+        if not self._opened_at:
+            return 0.0
+
+        return max(0.0, time.time() - self._opened_at)
