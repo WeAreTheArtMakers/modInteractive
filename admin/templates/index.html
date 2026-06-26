@@ -1,58 +1,108 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>modInteractive Admin</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <main class="container">
-        <header class="header">
+        <header class="hero">
             <div>
-                <h1>modInteractive</h1>
-                <p class="subtitle">Motion Triggered HDMI Video Display</p>
+                <p class="eyebrow">modInteractive</p>
+                <h1>Motion Triggered HDMI Video Display</h1>
+                <p>Camera veya PIR sensör ile video tetikleme ayarları.</p>
             </div>
-            <div class="header-badge">Admin Panel</div>
         </header>
 
-        <nav class="tabs" aria-label="Admin panel tabs">
-            <button type="button" class="tab active" data-tab="config">Configuration</button>
-            <button type="button" class="tab" data-tab="status">Status</button>
-            <button type="button" class="tab" data-tab="logs">Logs</button>
+        <nav class="tabs" aria-label="Admin tabs">
+            <button class="tab active" type="button" data-tab="config">Configuration</button>
+            <button class="tab" type="button" data-tab="status">Status</button>
+            <button class="tab" type="button" data-tab="logs">Logs</button>
         </nav>
 
         <section id="config" class="tab-content active">
             <div class="section-header">
                 <h2>Configuration</h2>
-                <p>Camera, motion detection and video playback settings.</p>
+                <p>Kamera, PIR sensör ve video oynatma ayarları.</p>
             </div>
 
-            <form id="config-form" autocomplete="off">
+            <form id="config-form">
+                <fieldset>
+                    <legend>Trigger Source</legend>
+
+                    <label for="trigger-source">
+                        Source
+                        <select name="trigger.source" id="trigger-source">
+                            <option value="camera">Camera motion detection</option>
+                            <option value="pir">PIR GPIO sensor</option>
+                        </select>
+                    </label>
+                </fieldset>
+
                 <fieldset>
                     <legend>Camera</legend>
 
                     <label for="camera-index">
-                        Device Index
-                        <input type="number" name="camera.index" id="camera-index" min="0" max="20" step="1" inputmode="numeric">
+                        Camera Device Index
+                        <input type="text" name="camera.index" id="camera-index" placeholder="0">
                     </label>
 
-                    <div class="form-row">
+                    <div class="grid-3">
                         <label for="camera-width">
                             Width
-                            <input type="number" name="camera.width" id="camera-width" min="160" max="3840" step="1" inputmode="numeric" placeholder="640">
+                            <input type="number" name="camera.width" id="camera-width" min="160" max="3840" step="1" inputmode="numeric">
                         </label>
 
                         <label for="camera-height">
                             Height
-                            <input type="number" name="camera.height" id="camera-height" min="120" max="2160" step="1" inputmode="numeric" placeholder="480">
+                            <input type="number" name="camera.height" id="camera-height" min="120" max="2160" step="1" inputmode="numeric">
+                        </label>
+
+                        <label for="camera-fps">
+                            FPS
+                            <input type="number" name="camera.fps" id="camera-fps" min="1" max="60" step="1" inputmode="numeric">
+                        </label>
+                    </div>
+                </fieldset>
+
+                <fieldset>
+                    <legend>PIR Sensor</legend>
+
+                    <div class="grid-3">
+                        <label for="pir-gpio-pin">
+                            BCM GPIO Pin
+                            <input type="number" name="pir.gpio_pin" id="pir-gpio-pin" min="0" max="27" step="1" inputmode="numeric">
+                        </label>
+
+                        <label for="pir-bounce-time">
+                            Bounce Time ms
+                            <input type="number" name="pir.bounce_time_ms" id="pir-bounce-time" min="0" max="5000" step="50" inputmode="numeric">
+                        </label>
+
+                        <label for="pir-settle-seconds">
+                            Warmup Seconds
+                            <input type="number" name="pir.settle_seconds" id="pir-settle-seconds" min="0" max="120" step="1" inputmode="numeric">
                         </label>
                     </div>
 
-                    <label for="camera-fps">
-                        FPS
-                        <input type="number" name="camera.fps" id="camera-fps" min="1" max="60" step="1" inputmode="numeric">
-                    </label>
+                    <div class="grid-3">
+                        <label for="pir-poll-interval">
+                            Poll Interval Seconds
+                            <input type="number" name="pir.poll_interval" id="pir-poll-interval" min="0.01" max="5" step="0.01" inputmode="decimal">
+                        </label>
+
+                        <label class="checkbox-label" for="pir-active-high">
+                            <input type="checkbox" name="pir.active_high" id="pir-active-high">
+                            <span>Active high</span>
+                        </label>
+
+                        <label class="checkbox-label" for="pir-pull-up">
+                            <input type="checkbox" name="pir.pull_up" id="pir-pull-up">
+                            <span>Internal pull-up</span>
+                        </label>
+                    </div>
                 </fieldset>
 
                 <fieldset>
@@ -60,18 +110,16 @@
 
                     <label for="motion-sensitivity">
                         Motion Sensitivity
-                        <div class="range-row">
-                            <input type="range" name="detection.motion_sensitivity" id="motion-sensitivity" min="100" max="5000" step="100">
-                            <span id="motion-sensitivity-value">-</span>
-                        </div>
+                        <span id="motion-sensitivity-value">-</span>
+                        <input type="range" name="detection.motion_sensitivity" id="motion-sensitivity" min="1" max="100000" step="1">
                     </label>
 
-                    <label for="min-motion-area">
-                        Minimum Motion Area
-                        <input type="number" name="detection.min_motion_area" id="min-motion-area" min="100" max="100000" step="100" inputmode="numeric">
-                    </label>
+                    <div class="grid-3">
+                        <label for="min-motion-area">
+                            Minimum Motion Area
+                            <input type="number" name="detection.min_motion_area" id="min-motion-area" min="1" max="100000" step="1" inputmode="numeric">
+                        </label>
 
-                    <div class="form-row">
                         <label for="cooldown-seconds">
                             Cooldown Seconds
                             <input type="number" name="detection.cooldown_seconds" id="cooldown-seconds" min="0" max="600" step="1" inputmode="numeric">
@@ -115,7 +163,7 @@
         <section id="status" class="tab-content">
             <div class="section-header">
                 <h2>System Status</h2>
-                <p>Camera, video player, OpenCV and system state.</p>
+                <p>Kamera/PIR, video player, GPIO ve sistem durumu.</p>
             </div>
 
             <div id="status-content" class="status-grid">

@@ -1,0 +1,32 @@
+modInteractive PIR + Camera Trigger Patch
+
+Included files:
+main.py
+app.py
+config.json
+core/config.py
+core/healthcheck.py
+core/pir.py
+admin/server.py
+admin/templates/index.html
+admin/static/app.js
+install.sh
+systemd/modinteractive.service
+.github/workflows/ci.yml
+PIR_SENSOR_NOTES.md
+README.md
+
+Validation:
+PY OK: main.py
+PY OK: app.py
+PY OK: admin/server.py
+PY OK: core/config.py
+PY OK: core/healthcheck.py
+PY OK: core/pir.py
+SHELL OK: install.sh 
+JSON OK: config.json
+YAML OK: .github/workflows/ci.yml
+JS OK: admin/static/app.js 
+SYSTEMD WARN: systemd/modinteractive.service modinteractive_pir.service: Command /opt/modInteractive/venv/bin/python is not executable: No such file or directory
+
+Default mode remains camera. Use --source pir or config trigger.source=pir for PIR sensor.

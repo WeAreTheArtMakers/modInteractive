@@ -125,10 +125,19 @@ async function loadConfig() {
     try {
         const config = await apiFetch("/api/config");
 
+        setValue("trigger-source", getNested(config, "trigger.source", "camera"));
+
         setValue("camera-index", getNested(config, "camera.index", 0));
         setValue("camera-width", getNested(config, "camera.width", 640));
         setValue("camera-height", getNested(config, "camera.height", 480));
         setValue("camera-fps", getNested(config, "camera.fps", 15));
+
+        setValue("pir-gpio-pin", getNested(config, "pir.gpio_pin", 17));
+        setChecked("pir-active-high", getNested(config, "pir.active_high", true));
+        setChecked("pir-pull-up", getNested(config, "pir.pull_up", false));
+        setValue("pir-bounce-time", getNested(config, "pir.bounce_time_ms", 500));
+        setValue("pir-settle-seconds", getNested(config, "pir.settle_seconds", 30));
+        setValue("pir-poll-interval", getNested(config, "pir.poll_interval", 0.05));
 
         const sensitivity = getNested(config, "detection.motion_sensitivity", 500);
         setValue("motion-sensitivity", sensitivity);
@@ -153,14 +162,25 @@ async function saveConfig() {
         system: {
             log_level: "INFO",
             project_name: "modInteractive",
-            version: "1.0.0",
+            version: "1.1.0",
+        },
+        trigger: {
+            source: readSelect("trigger-source", "camera", ["camera", "pir"]),
         },
         camera: {
-            index: readInt("camera-index", 0, 0, 20),
+            index: readCameraIndex("camera-index", 0),
             width: readInt("camera-width", 640, 160, 3840),
             height: readInt("camera-height", 480, 120, 2160),
             fps: readInt("camera-fps", 15, 1, 60),
             backend: "v4l2",
+        },
+        pir: {
+            gpio_pin: readInt("pir-gpio-pin", 17, 0, 27),
+            active_high: readChecked("pir-active-high", true),
+            pull_up: readChecked("pir-pull-up", false),
+            bounce_time_ms: readInt("pir-bounce-time", 500, 0, 5000),
+            settle_seconds: readInt("pir-settle-seconds", 30, 0, 120),
+            poll_interval: readFloat("pir-poll-interval", 0.05, 0.01, 5),
         },
         detection: {
             enabled: true,
@@ -194,7 +214,7 @@ async function saveConfig() {
         });
 
         if (data.status === "ok") {
-            showStatus("Configuration saved successfully", "success");
+            showStatus("Configuration saved successfully. Restart service to apply trigger source changes.", "success");
             await loadStatus();
         } else {
             showStatus(data.error || "Configuration save failed", "error");
@@ -216,23 +236,40 @@ async function loadStatus() {
     try {
         const status = await apiFetch("/api/status");
 
+        const source = status.trigger_source || "camera";
         const items = [
+            {
+                label: "Trigger Source",
+                value: source,
+                fail: false,
+            },
             {
                 label: "OpenCV",
                 value: status.opencv_available
                     ? `Available (${status.opencv_version || "unknown"})`
-                    : "Not available",
-                fail: !status.opencv_available,
+                    : source === "camera"
+                        ? "Not available"
+                        : "Not required in PIR mode",
+                fail: source === "camera" && !status.opencv_available,
             },
             {
                 label: "Camera",
-                value: status.camera_available ? "Available" : "Not available",
-                fail: !status.camera_available,
+                value: status.camera_available ? "Available" : source === "camera" ? "Not available" : "Not used",
+                fail: source === "camera" && !status.camera_available,
             },
             {
                 label: "Camera Resolution",
                 value: status.camera_resolution || "N/A",
                 fail: false,
+            },
+            {
+                label: "PIR Sensor",
+                value: status.pir_available
+                    ? `Available on BCM GPIO ${status.pir_gpio_pin}, state=${status.pir_state}`
+                    : source === "pir"
+                        ? (status.pir_error || "Not available")
+                        : "Not used",
+                fail: source === "pir" && !status.pir_available,
             },
             {
                 label: "Video File",
@@ -326,13 +363,9 @@ async function testVideo() {
 function createStatusItem(label, value, fail = false) {
     const safeLabel = escapeHtml(String(label));
     const safeValue = escapeHtml(String(value));
+    const className = fail ? "status-item fail" : "status-item";
 
-    return `
-        <div class="status-item">
-            <span class="label">${safeLabel}</span>
-            <span class="value ${fail ? "fail" : "ok"}">${safeValue}</span>
-        </div>
-    `;
+    return `<div class="${className}"><span class="label">${safeLabel}</span><span class="value">${safeValue}</span></div>`;
 }
 
 function getNested(object, path, fallback) {
@@ -380,6 +413,26 @@ function readString(id, fallback) {
     return value || fallback;
 }
 
+function readSelect(id, fallback, allowed) {
+    const value = readString(id, fallback).toLowerCase();
+
+    if (Array.isArray(allowed) && allowed.includes(value)) {
+        return value;
+    }
+
+    return fallback;
+}
+
+function readCameraIndex(id, fallback) {
+    const value = readString(id, String(fallback));
+
+    if (/^\d+$/.test(value)) {
+        return Number.parseInt(value, 10);
+    }
+
+    return value;
+}
+
 function readChecked(id, fallback) {
     const element = document.getElementById(id);
 
@@ -398,6 +451,30 @@ function readInt(id, fallback, minimum, maximum) {
     }
 
     let value = Number.parseInt(element.value, 10);
+
+    if (Number.isNaN(value)) {
+        value = fallback;
+    }
+
+    if (typeof minimum === "number" && value < minimum) {
+        value = minimum;
+    }
+
+    if (typeof maximum === "number" && value > maximum) {
+        value = maximum;
+    }
+
+    return value;
+}
+
+function readFloat(id, fallback, minimum, maximum) {
+    const element = document.getElementById(id);
+
+    if (!element) {
+        return fallback;
+    }
+
+    let value = Number.parseFloat(element.value);
 
     if (Number.isNaN(value)) {
         value = fallback;

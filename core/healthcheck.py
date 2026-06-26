@@ -25,8 +25,16 @@ class HealthCheck:
         self._check_config()
         self._check_log_directory()
         self._check_player()
-        self._check_opencv()
-        self._check_camera()
+
+        source = str(self._config.get("trigger.source", "camera")).lower().strip()
+
+        if source == "pir":
+            self._check_gpiozero()
+            self._check_pir_sensor()
+        else:
+            self._check_opencv()
+            self._check_camera()
+
         self._check_video_file()
         self._check_admin_port()
         self._check_venv()
@@ -58,7 +66,7 @@ class HealthCheck:
         print("-" * 70)
 
         if has_fail:
-            print(" Some checks FAILED. Fix the failed items before production use.")
+            print(" Some checks FAILED. Fix failed items before production use.")
         elif has_warning:
             print(" Checks completed with warnings. Review warnings before deployment.")
         else:
@@ -100,12 +108,14 @@ class HealthCheck:
                 return
 
             config_path = getattr(self._config, "path", "config.json")
+            source = self._config.get("trigger.source", "camera")
             camera_index = self._config.get("camera.index", "?")
+            pir_pin = self._config.get("pir.gpio_pin", "?")
             video_path = self._config.get("video.path", "videos/selamlama.mp4")
 
             self._ok(
                 "Config loaded",
-                f"path={config_path}, camera.index={camera_index}, video.path={video_path}",
+                f"path={config_path}, source={source}, camera.index={camera_index}, pir.gpio_pin={pir_pin}, video.path={video_path}",
             )
 
         except Exception as exc:
@@ -211,6 +221,43 @@ class HealthCheck:
                 except Exception:
                     logger.debug("Camera release failed during health check", exc_info=True)
 
+    def _check_gpiozero(self) -> None:
+        try:
+            gpiozero = importlib.import_module("gpiozero")
+            self._ok("gpiozero", f"available: {getattr(gpiozero, '__version__', 'unknown')}")
+        except ImportError as exc:
+            self._fail("gpiozero", f"Import failed: {exc}; install: sudo apt install python3-gpiozero python3-lgpio")
+        except Exception as exc:
+            self._fail("gpiozero", str(exc))
+
+    def _check_pir_sensor(self) -> None:
+        try:
+            from core.pir import PIRSensor
+
+            pin = self._safe_int(self._config.get("pir.gpio_pin", 17), 17, minimum=0, maximum=27)
+            active_high = bool(self._config.get("pir.active_high", True))
+            pull_up = bool(self._config.get("pir.pull_up", False))
+            bounce_ms = self._safe_int(self._config.get("pir.bounce_time_ms", 500), 500, minimum=0, maximum=5000)
+
+            sensor = PIRSensor(
+                gpio_pin=pin,
+                active_high=active_high,
+                pull_up=pull_up,
+                bounce_time_ms=bounce_ms,
+                settle_seconds=0,
+            )
+
+            if not sensor.open():
+                self._fail("PIR sensor", f"Could not open BCM GPIO {pin}")
+                return
+
+            state = sensor.current_state()
+            sensor.close()
+            self._ok("PIR sensor", f"BCM GPIO {pin} readable, current_state={state}")
+
+        except Exception as exc:
+            self._fail("PIR sensor", str(exc))
+
     def _check_video_file(self) -> None:
         try:
             video_path = self._resolve_config_path("video.path", "videos/selamlama.mp4")
@@ -260,32 +307,15 @@ class HealthCheck:
             self._warn("Admin panel", f"Port check failed: {exc}")
 
     def _check_venv(self) -> None:
-        expected_venv_python = Path("/opt/modInteractive/venv/bin/python")
-        old_venv_python = Path("/opt/modInteractive/.venv/bin/python")
-
-        if expected_venv_python.is_file():
-            self._ok("Virtualenv path", str(expected_venv_python))
-            return
-
-        if old_venv_python.is_file():
-            self._warn(
-                "Virtualenv path",
-                f"{old_venv_python} exists, but expected {expected_venv_python}",
-            )
-            return
-
-        if hasattr(sys, "real_prefix") or sys.prefix != getattr(sys, "base_prefix", sys.prefix):
-            self._ok("Virtualenv path", f"Running inside venv: {sys.prefix}")
-            return
-
-        self._warn("Virtualenv path", "Not installed yet or not running inside a virtualenv")
+        executable = Path(sys.executable)
+        if "venv" in executable.parts:
+            self._ok("Python virtualenv", str(executable))
+        else:
+            self._warn("Python virtualenv", f"Not running from venv: {executable}")
 
     def _resolve_config_path(self, key_path: str, default: str) -> Path:
-        if hasattr(self._config, "resolve_path"):
-            return self._config.resolve_path(key_path, default)
-
-        raw_path = str(self._config.get(key_path, default))
-        path = Path(raw_path).expanduser()
+        raw_value = str(self._config.get(key_path, default)).strip()
+        path = Path(raw_value).expanduser()
 
         if not path.is_absolute():
             base_dir = getattr(self._config, "base_dir", Path.cwd())
@@ -293,33 +323,27 @@ class HealthCheck:
 
         return path.resolve()
 
-    def _normalize_camera_index(self, raw_index: Any) -> Any:
-        if isinstance(raw_index, int):
-            return raw_index
-
-        if isinstance(raw_index, str):
-            value = raw_index.strip()
-
-            if value.isdigit():
-                return int(value)
-
-            return value
-
-        try:
-            return int(raw_index)
-        except (TypeError, ValueError):
-            return 0
-
     def _camera_device_detail(self, camera_index: Any) -> str:
         if isinstance(camera_index, int):
-            device_path = Path(f"/dev/video{camera_index}")
-
-            if device_path.exists():
-                return str(device_path)
-
-            return f"index={camera_index}"
-
+            candidate = Path(f"/dev/video{camera_index}")
+            if candidate.exists():
+                return str(candidate)
         return str(camera_index)
+
+    def _normalize_camera_index(self, value: Any) -> Any:
+        if isinstance(value, int):
+            return value
+
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped.isdigit():
+                return int(stripped)
+            return stripped
+
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
 
     def _safe_int(
         self,

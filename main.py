@@ -20,7 +20,7 @@ from core.healthcheck import HealthCheck
 from core.logger import setup_logger
 
 APP_NAME = "modInteractive"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 DEFAULT_CONFIG = "config.json"
 DEFAULT_LOG_DIR = "logs"
 DEFAULT_LOG_FILE = "modinteractive.log"
@@ -28,22 +28,26 @@ DEFAULT_LOG_FILE = "modinteractive.log"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="modInteractive - Motion Triggered HDMI Video Display for Raspberry Pi"
+        description="modInteractive - Camera/PIR Triggered HDMI Video Display for Raspberry Pi"
     )
-
     parser.add_argument(
         "--check",
         action="store_true",
         help="Run system health check and exit",
     )
-
     parser.add_argument(
         "--config",
         type=str,
         default=DEFAULT_CONFIG,
         help=f"Path to configuration file (default: {DEFAULT_CONFIG})",
     )
-
+    parser.add_argument(
+        "--source",
+        type=str,
+        default=None,
+        choices=["camera", "pir"],
+        help="Override trigger source for this run: camera or pir",
+    )
     parser.add_argument(
         "--log-level",
         type=str,
@@ -51,7 +55,6 @@ def parse_args() -> argparse.Namespace:
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
         help="Override log level from config",
     )
-
     return parser.parse_args()
 
 
@@ -83,7 +86,6 @@ def load_log_level(config_path: Path, cli_level: Optional[str]) -> str:
 
 def configure_logging(config_path: Path, cli_level: Optional[str]) -> logging.Logger:
     ensure_runtime_directories()
-
     return setup_logger(
         log_dir=str(PROJECT_ROOT / DEFAULT_LOG_DIR),
         log_file=DEFAULT_LOG_FILE,
@@ -91,12 +93,15 @@ def configure_logging(config_path: Path, cli_level: Optional[str]) -> logging.Lo
     )
 
 
-def run_health_check(config_path: Path, logger: logging.Logger) -> int:
+def run_health_check(config_path: Path, logger: logging.Logger, source_override: Optional[str]) -> int:
     logger.info("Running system health check with config: %s", config_path)
 
     try:
         config = Config(str(config_path))
         config.load()
+
+        if source_override:
+            config.set("trigger.source", source_override, save=False)
 
         check = HealthCheck(config)
         check.run_all()
@@ -115,8 +120,8 @@ def run_health_check(config_path: Path, logger: logging.Logger) -> int:
         return 1
 
 
-async def run_application(config_path: Path, logger: logging.Logger) -> int:
-    app = Application(config_path=str(config_path))
+async def run_application(config_path: Path, logger: logging.Logger, source_override: Optional[str]) -> int:
+    app = Application(config_path=str(config_path), source_override=source_override)
     stop_event = asyncio.Event()
     loop = asyncio.get_running_loop()
 
@@ -145,7 +150,6 @@ async def run_application(config_path: Path, logger: logging.Logger) -> int:
 
         if stop_task in done:
             app.stop()
-
             if not app_task.done():
                 await app_task
 
@@ -155,7 +159,6 @@ async def run_application(config_path: Path, logger: logging.Logger) -> int:
                 return 130
 
             exception = app_task.exception()
-
             if exception is not None:
                 logger.error("Application task failed: %s", exception, exc_info=exception)
                 return 1
@@ -183,8 +186,7 @@ async def run_application(config_path: Path, logger: logging.Logger) -> int:
     finally:
         if not stop_task.done():
             stop_task.cancel()
-            await asyncio.gather(stop_task, return_exceptions=True)
-
+        await asyncio.gather(stop_task, return_exceptions=True)
         await app.shutdown()
 
 
@@ -194,16 +196,19 @@ def main() -> None:
     logger = configure_logging(config_path, args.log_level)
 
     logger.info("=" * 60)
-    logger.info("%s v%s - Motion Triggered HDMI Video Display", APP_NAME, APP_VERSION)
+    logger.info("%s v%s - Camera/PIR Triggered HDMI Video Display", APP_NAME, APP_VERSION)
     logger.info("=" * 60)
     logger.info("Project root: %s", PROJECT_ROOT)
     logger.info("Config path: %s", config_path)
 
+    if args.source:
+        logger.info("CLI trigger source override: %s", args.source)
+
     if args.check:
-        raise SystemExit(run_health_check(config_path, logger))
+        raise SystemExit(run_health_check(config_path, logger, args.source))
 
     try:
-        exit_code = asyncio.run(run_application(config_path, logger))
+        exit_code = asyncio.run(run_application(config_path, logger, args.source))
     except KeyboardInterrupt:
         logger.info("Keyboard interrupt received before shutdown completed")
         exit_code = 130

@@ -118,58 +118,30 @@ def reload_config() -> Any:
 @app.route("/api/status", methods=["GET"])
 def get_status() -> Any:
     data = _current_config()
+    trigger_source = str(_nested_get(data, "trigger.source", "camera")).lower().strip()
+
     status: Dict[str, Any] = {
         "admin": "running",
         "project_root": str(BASE_DIR),
         "config_path": str(_config_path),
+        "trigger_source": trigger_source,
         "opencv_available": False,
         "opencv_version": None,
         "camera_available": False,
         "camera_resolution": None,
+        "pir_available": False,
+        "pir_gpio_pin": _safe_int(_nested_get(data, "pir.gpio_pin", 17), 17, 0, 27),
+        "pir_state": None,
         "video_exists": False,
         "video_path": None,
         "mpv_available": shutil.which("mpv") is not None,
         "mpv_path": shutil.which("mpv"),
     }
 
-    try:
-        import cv2
-
-        status["opencv_available"] = True
-        status["opencv_version"] = cv2.__version__
-
-        camera_index = _normalize_camera_index(
-            _nested_get(data, "camera.index", 0)
-        )
-        camera_width = _safe_int(_nested_get(data, "camera.width", 640), 640, 1)
-        camera_height = _safe_int(_nested_get(data, "camera.height", 480), 480, 1)
-        camera_fps = _safe_int(_nested_get(data, "camera.fps", 15), 15, 1)
-        camera_backend = str(_nested_get(data, "camera.backend", "v4l2")).lower()
-
-        if camera_backend == "v4l2" and hasattr(cv2, "CAP_V4L2"):
-            cap = cv2.VideoCapture(camera_index, cv2.CAP_V4L2)
-        else:
-            cap = cv2.VideoCapture(camera_index)
-
-        try:
-            if cap.isOpened():
-                cap.set(cv2.CAP_PROP_FRAME_WIDTH, camera_width)
-                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, camera_height)
-                cap.set(cv2.CAP_PROP_FPS, camera_fps)
-
-                ok, frame = cap.read()
-
-                if ok and frame is not None:
-                    status["camera_available"] = True
-                    status["camera_resolution"] = f"{frame.shape[1]}x{frame.shape[0]}"
-                else:
-                    status["camera_available"] = True
-                    status["camera_resolution"] = "opened but no frame"
-        finally:
-            cap.release()
-
-    except Exception as exc:
-        status["camera_error"] = str(exc)
+    if trigger_source == "camera":
+        _fill_camera_status(status, data)
+    elif trigger_source == "pir":
+        _fill_pir_status(status, data)
 
     video_path = _resolve_video_path(str(_nested_get(data, "video.path", "videos/selamlama.mp4")))
     status["video_path"] = str(video_path)
@@ -232,7 +204,6 @@ def test_video() -> Any:
             shell=False,
             start_new_session=True,
         )
-
         return jsonify(
             {
                 "status": "ok",
@@ -257,7 +228,6 @@ def get_logs() -> Any:
     try:
         lines = log_file.read_text(encoding="utf-8", errors="replace").splitlines()
         return jsonify({"logs": lines[-limit:]})
-
     except Exception as exc:
         logger.exception("Reading logs failed")
         return jsonify({"error": str(exc)}), 500
@@ -279,7 +249,6 @@ def run_server(host: str = "0.0.0.0", port: int = 8080) -> None:
 
 def start_admin_thread(config: Any, config_path: str) -> threading.Thread:
     init(config, config_path)
-
     host = str(config.get("admin.host", "0.0.0.0"))
     port = _safe_int(config.get("admin.port", 8080), 8080, 1, 65535)
 
@@ -290,9 +259,72 @@ def start_admin_thread(config: Any, config_path: str) -> threading.Thread:
         name="modinteractive-admin-server",
     )
     thread.start()
-
     logger.info("Admin panel thread started on port %d", port)
     return thread
+
+
+def _fill_camera_status(status: Dict[str, Any], data: Dict[str, Any]) -> None:
+    try:
+        import cv2
+
+        status["opencv_available"] = True
+        status["opencv_version"] = cv2.__version__
+
+        camera_index = _normalize_camera_index(
+            _nested_get(data, "camera.index", 0)
+        )
+        camera_width = _safe_int(_nested_get(data, "camera.width", 640), 640, 1)
+        camera_height = _safe_int(_nested_get(data, "camera.height", 480), 480, 1)
+        camera_fps = _safe_int(_nested_get(data, "camera.fps", 15), 15, 1)
+        camera_backend = str(_nested_get(data, "camera.backend", "v4l2")).lower()
+
+        if camera_backend == "v4l2" and hasattr(cv2, "CAP_V4L2"):
+            cap = cv2.VideoCapture(camera_index, cv2.CAP_V4L2)
+        else:
+            cap = cv2.VideoCapture(camera_index)
+
+        try:
+            if cap.isOpened():
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, camera_width)
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, camera_height)
+                cap.set(cv2.CAP_PROP_FPS, camera_fps)
+
+                ok, frame = cap.read()
+
+                if ok and frame is not None:
+                    status["camera_available"] = True
+                    status["camera_resolution"] = f"{frame.shape[1]}x{frame.shape[0]}"
+                else:
+                    status["camera_available"] = True
+                    status["camera_resolution"] = "opened but no frame"
+        finally:
+            cap.release()
+
+    except Exception as exc:
+        status["camera_error"] = str(exc)
+
+
+def _fill_pir_status(status: Dict[str, Any], data: Dict[str, Any]) -> None:
+    try:
+        from core.pir import PIRSensor
+
+        sensor = PIRSensor(
+            gpio_pin=_safe_int(_nested_get(data, "pir.gpio_pin", 17), 17, 0, 27),
+            active_high=bool(_nested_get(data, "pir.active_high", True)),
+            pull_up=bool(_nested_get(data, "pir.pull_up", False)),
+            bounce_time_ms=_safe_int(_nested_get(data, "pir.bounce_time_ms", 500), 500, 0, 5000),
+            settle_seconds=0,
+        )
+
+        if sensor.open():
+            status["pir_available"] = True
+            status["pir_state"] = sensor.current_state()
+            sensor.close()
+        else:
+            status["pir_error"] = "Could not open PIR GPIO"
+
+    except Exception as exc:
+        status["pir_error"] = str(exc)
 
 
 def _current_config() -> Dict[str, Any]:
@@ -318,7 +350,6 @@ def _read_config_file() -> Dict[str, Any]:
             return data
 
         return {}
-
     except Exception:
         logger.exception("Could not read config file")
         return {}

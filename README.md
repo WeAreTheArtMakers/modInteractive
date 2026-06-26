@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/modinteracitve-logo.png" alt="modInteractive logo" width="760">
+  <img src="assets/modinteractive-logo.png" alt="modInteractive logo" width="760">
 </p>
 
 # modInteractive
@@ -380,3 +380,29 @@ python main.py
 ## Lisans
 
 MIT License
+
+
+## PIR Sensor Mode
+
+This version supports two trigger sources:
+
+- `camera`: camera motion detection
+- `pir`: PIR GPIO motion sensor
+
+Run once with PIR:
+
+```bash
+python main.py --source pir
+```
+
+Or set this in `config.json`:
+
+```json
+{
+  "trigger": {
+    "source": "pir"
+  }
+}
+```
+
+Default PIR input is BCM GPIO 17. See `PIR_SENSOR_NOTES.md`.

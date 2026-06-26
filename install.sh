@@ -45,7 +45,7 @@ REAL_UID="$(id -u "${REAL_USER}" 2>/dev/null || echo "0")"
 echo ""
 echo "========================================"
 echo " modInteractive Installer"
-echo " Raspberry Pi Motion Triggered Display"
+echo " Raspberry Pi 5 Camera/PIR Triggered Display"
 echo "========================================"
 echo ""
 
@@ -63,16 +63,23 @@ apt-get install -y \
     python3-pip \
     python3-opencv \
     python3-numpy \
+    python3-gpiozero \
+    python3-lgpio \
     mpv \
     v4l-utils
 success "System dependencies installed"
 echo ""
 
+for group in audio video render input gpio; do
+    if getent group "${group}" >/dev/null 2>&1; then
+        usermod -a -G "${group}" "${REAL_USER}" || true
+    fi
+done
+
 info "Step 2/6: Creating directory structure"
 mkdir -p "${INSTALL_DIR}"
 mkdir -p "${INSTALL_DIR}/core"
-mkdir -p "${INSTALL_DIR}/admin/templates"
-mkdir -p "${INSTALL_DIR}/admin/static"
+mkdir -p "${INSTALL_DIR}/admin"
 mkdir -p "${INSTALL_DIR}/systemd"
 mkdir -p "${INSTALL_DIR}/videos"
 mkdir -p "${INSTALL_DIR}/logs"
@@ -88,6 +95,11 @@ for required_file in main.py app.py config.json; do
     fi
 done
 
+if [[ ! -d "${SOURCE_DIR}/core" ]]; then
+    error "Required directory missing: ${SOURCE_DIR}/core"
+    exit 1
+fi
+
 cp "${SOURCE_DIR}/main.py" "${INSTALL_DIR}/main.py"
 cp "${SOURCE_DIR}/app.py" "${INSTALL_DIR}/app.py"
 cp "${SOURCE_DIR}/config.json" "${INSTALL_DIR}/config.json"
@@ -100,19 +112,16 @@ flask>=2.3.0
 EOF
 fi
 
-if [[ -d "${SOURCE_DIR}/core" ]]; then
-    cp -a "${SOURCE_DIR}/core/." "${INSTALL_DIR}/core/"
+rm -rf "${INSTALL_DIR}/core"
+mkdir -p "${INSTALL_DIR}/core"
+cp -a "${SOURCE_DIR}/core/." "${INSTALL_DIR}/core/"
+
+if [[ -d "${SOURCE_DIR}/admin" ]]; then
+    rm -rf "${INSTALL_DIR}/admin"
+    mkdir -p "${INSTALL_DIR}/admin"
+    cp -a "${SOURCE_DIR}/admin/." "${INSTALL_DIR}/admin/"
 else
-    error "Required directory missing: ${SOURCE_DIR}/core"
-    exit 1
-fi
-
-if [[ -d "${SOURCE_DIR}/admin/templates" ]]; then
-    cp -a "${SOURCE_DIR}/admin/templates/." "${INSTALL_DIR}/admin/templates/"
-fi
-
-if [[ -d "${SOURCE_DIR}/admin/static" ]]; then
-    cp -a "${SOURCE_DIR}/admin/static/." "${INSTALL_DIR}/admin/static/"
+    warning "Admin directory not found. Admin panel will be disabled."
 fi
 
 if [[ -d "${SOURCE_DIR}/videos" ]]; then
@@ -151,9 +160,17 @@ echo ""
 
 info "Step 6/6: Installing systemd service"
 
+SERVICE_GROUPS=""
+for group in audio video render input gpio; do
+    if getent group "${group}" >/dev/null 2>&1; then
+        SERVICE_GROUPS="${SERVICE_GROUPS} ${group}"
+    fi
+done
+SERVICE_GROUPS="$(echo "${SERVICE_GROUPS}" | xargs || true)"
+
 cat > "${SERVICE_DST}" <<EOF
 [Unit]
-Description=modInteractive Motion Triggered HDMI Video Display
+Description=modInteractive Camera/PIR Triggered HDMI Video Display
 Documentation=https://github.com/WeAreTheArtMakers/modInteractive
 After=graphical.target
 Wants=graphical.target
@@ -162,7 +179,7 @@ Wants=graphical.target
 Type=simple
 User=${REAL_USER}
 Group=${REAL_GROUP}
-SupplementaryGroups=audio video render input
+SupplementaryGroups=${SERVICE_GROUPS}
 WorkingDirectory=${INSTALL_DIR}
 ExecStart=${VENV_DIR}/bin/python ${INSTALL_DIR}/main.py
 Restart=always
@@ -201,11 +218,13 @@ echo "Install dir: ${INSTALL_DIR}"
 echo "Virtualenv:  ${VENV_DIR}"
 echo "Service:     ${SERVICE_NAME}"
 echo ""
-info "Test:"
-echo "sudo -u ${REAL_USER} ${VENV_DIR}/bin/python ${INSTALL_DIR}/main.py --check"
+info "Camera mode:"
+echo "sudo systemctl restart ${SERVICE_NAME}"
 echo ""
-info "Start:"
-echo "sudo systemctl start ${SERVICE_NAME}"
+info "PIR mode:"
+echo "cd ${INSTALL_DIR}"
+echo "sudo -u ${REAL_USER} ${VENV_DIR}/bin/python main.py --source pir --check"
+echo "Set config.json trigger.source to pir or run: ${VENV_DIR}/bin/python main.py --source pir"
 echo ""
 info "Status:"
 echo "sudo systemctl status ${SERVICE_NAME}"

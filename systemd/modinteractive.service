@@ -1,5 +1,5 @@
 [Unit]
-Description=modInteractive Motion Triggered HDMI Video Display
+Description=modInteractive Camera/PIR Triggered HDMI Video Display
 Documentation=https://github.com/WeAreTheArtMakers/modInteractive
 After=graphical.target
 Wants=graphical.target
@@ -8,7 +8,7 @@ Wants=graphical.target
 Type=simple
 User=pi
 Group=pi
-SupplementaryGroups=audio video render input
+SupplementaryGroups=audio video render input gpio
 WorkingDirectory=/opt/modInteractive
 ExecStart=/opt/modInteractive/venv/bin/python /opt/modInteractive/main.py
 Restart=always

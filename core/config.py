@@ -12,7 +12,10 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "system": {
         "log_level": "INFO",
         "project_name": "modInteractive",
-        "version": "1.0.0",
+        "version": "1.1.0",
+    },
+    "trigger": {
+        "source": "camera",
     },
     "camera": {
         "index": 0,
@@ -20,6 +23,14 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "height": 480,
         "fps": 15,
         "backend": "v4l2",
+    },
+    "pir": {
+        "gpio_pin": 17,
+        "active_high": True,
+        "pull_up": False,
+        "bounce_time_ms": 500,
+        "settle_seconds": 30,
+        "poll_interval": 0.05,
     },
     "detection": {
         "enabled": True,
@@ -63,7 +74,6 @@ class Config:
     def data(self) -> Dict[str, Any]:
         if not self._loaded:
             self.load()
-
         return copy.deepcopy(self._data)
 
     def load(self) -> None:
@@ -133,7 +143,6 @@ class Config:
             return default
 
         value: Any = self._data
-
         for part in key_path.split("."):
             if isinstance(value, dict) and part in value:
                 value = value[part]
@@ -198,7 +207,9 @@ class Config:
 
         logger.info("Configuration check")
         logger.info("Config path: %s", self._path)
+        logger.info("Trigger source: %s", self.get("trigger.source", "camera"))
         logger.info("Camera index: %s", self.get("camera.index", 0))
+        logger.info("PIR GPIO pin: %s", self.get("pir.gpio_pin", 17))
         logger.info(
             "Camera resolution: %sx%s",
             self.get("camera.width", 640),
@@ -238,16 +249,27 @@ class Config:
 
     def _validate_and_normalize(self) -> None:
         self._ensure_section("system")
+        self._ensure_section("trigger")
         self._ensure_section("camera")
+        self._ensure_section("pir")
         self._ensure_section("detection")
         self._ensure_section("video")
         self._ensure_section("admin")
+
+        self._set_string("trigger.source", "camera", allowed={"camera", "pir"})
 
         self._set_camera_index("camera.index", 0)
         self._set_int("camera.width", 640, minimum=1, maximum=3840)
         self._set_int("camera.height", 480, minimum=1, maximum=2160)
         self._set_int("camera.fps", 15, minimum=1, maximum=60)
         self._set_string("camera.backend", "v4l2", allowed={"auto", "v4l2"})
+
+        self._set_int("pir.gpio_pin", 17, minimum=0, maximum=27)
+        self._set_bool("pir.active_high", True)
+        self._set_bool("pir.pull_up", False)
+        self._set_int("pir.bounce_time_ms", 500, minimum=0, maximum=5000)
+        self._set_int("pir.settle_seconds", 30, minimum=0, maximum=120)
+        self._set_float("pir.poll_interval", 0.05, minimum=0.01, maximum=5.0)
 
         self._set_bool("detection.enabled", True)
         self._set_string("detection.mode", "motion", allowed={"motion"})
@@ -268,7 +290,7 @@ class Config:
 
         self._set_string("system.log_level", "INFO", allowed={"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"})
         self._set_string("system.project_name", "modInteractive")
-        self._set_string("system.version", "1.0.0")
+        self._set_string("system.version", "1.1.0")
 
     def _ensure_section(self, section: str) -> None:
         if not isinstance(self._data.get(section), dict):
@@ -281,6 +303,7 @@ class Config:
             value: Any = max(0, raw_value)
         elif isinstance(raw_value, str):
             stripped = raw_value.strip()
+
             if stripped.isdigit():
                 value = max(0, int(stripped))
             elif stripped:
@@ -308,6 +331,29 @@ class Config:
             value = int(raw_value)
         except (TypeError, ValueError):
             logger.warning("Invalid integer config value %s=%r; using %d", key_path, raw_value, default)
+            value = default
+
+        if minimum is not None and value < minimum:
+            value = minimum
+
+        if maximum is not None and value > maximum:
+            value = maximum
+
+        self._assign(key_path, value)
+
+    def _set_float(
+        self,
+        key_path: str,
+        default: float,
+        minimum: Optional[float] = None,
+        maximum: Optional[float] = None,
+    ) -> None:
+        raw_value = self.get(key_path, default)
+
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError):
+            logger.warning("Invalid float config value %s=%r; using %.2f", key_path, raw_value, default)
             value = default
 
         if minimum is not None and value < minimum:
