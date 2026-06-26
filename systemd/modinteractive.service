@@ -1,0 +1,29 @@
+[Unit]
+Description=modInteractive - AI-Powered Kiosk System
+After=network.target multi-user.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/opt/modInteractive
+Environment=DISPLAY=:0
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=PATH=/opt/modInteractive/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/modInteractive/venv/bin/python /opt/modInteractive/main.py
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=3
+WatchdogSec=10
+TimeoutStartSec=30
+TimeoutStopSec=15
+KillMode=mixed
+KillSignal=SIGTERM
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

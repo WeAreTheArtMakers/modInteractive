@@ -1,0 +1,56 @@
+{
+  "system": {
+    "name": "modInteractive",
+    "version": "2.0.0",
+    "log_level": "INFO",
+    "log_retention_days": 30,
+    "auto_start": true,
+    "watchdog_timeout": 10
+  },
+  "camera": {
+    "device_id": 0,
+    "resolution": {
+      "width": 640,
+      "height": 480
+    },
+    "fps": 15,
+    "brightness": 0,
+    "contrast": 0,
+    "auto_reconnect": true,
+    "reconnect_interval": 2
+  },
+  "detection": {
+    "mode": "hybrid",
+    "confidence_threshold": 0.65,
+    "cooldown_seconds": 10,
+    "frame_skip": 2,
+    "motion_sensitivity": 0.02,
+    "enable_roi": false,
+    "roi": {
+      "x": 0,
+      "y": 0,
+      "width": 1,
+      "height": 1
+    },
+    "model_path": "models/yolov8n.pt"
+  },
+  "video": {
+    "fade_in_duration": 1.0,
+    "fade_out_duration": 1.0,
+    "volume": 80,
+    "fullscreen": true,
+    "playback_mode": "random",
+    "loop_videos": false,
+    "playlist": []
+  },
+  "ui": {
+    "theme": "dark",
+    "language": "en",
+    "touchscreen_mode": true,
+    "show_preview": true
+  },
+  "plugins": {
+    "enabled": [],
+    "paths": ["plugins/detection", "plugins/playback", "plugins/ui"]
+  }
+}

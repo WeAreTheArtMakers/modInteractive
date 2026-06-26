@@ -1,0 +1,1 @@
+"""Core services for modInteractive kiosk system."""
