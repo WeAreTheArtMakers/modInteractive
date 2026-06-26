@@ -185,6 +185,7 @@ class Application:
                     config_service=self._config_service,
                 )
                 self._ui.show()
+                self._ui.showMaximized()
                 logger.info("UI started successfully")
             except ImportError as e:
                 logger.warning(f"UI not available (running headless): {e}")

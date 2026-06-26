@@ -73,7 +73,6 @@ logger = logging.getLogger(__name__)
 # Constants
 # ──────────────────────────────────────────────
 
-TOUCH_MIN_SIZE = 48  # Minimum touch target size in pixels
 ANIMATION_DURATION = 200  # UI animation duration in ms
 STATUS_POLL_INTERVAL = 500  # Status update polling interval in ms
 
@@ -193,8 +192,6 @@ QGroupBox::title {
     color: #AAAAAA;
     font-weight: 600;
     font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
 }
 
 /* ── Status Indicators ── */
@@ -472,8 +469,6 @@ QGroupBox::title {
     color: #888888;
     font-weight: 600;
     font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
 }
 
 QLabel#statusOk {
@@ -771,7 +766,6 @@ class StatCard(QFrame):
         # Title
         title_label = QLabel(self._title.upper())
         title_label.setStyleSheet(
-            "font-size: 11px; font-weight: 600; letter-spacing: 1px;"
             "color: #AAAAAA; background: transparent;"
         )
         layout.addWidget(title_label)
@@ -2028,46 +2022,49 @@ class MainWindow(QMainWindow):
 
     def _setup_system_tray(self) -> None:
         """Configure the system tray icon and context menu."""
-        # Create a simple icon using a pixmap (16x16)
-        icon_pixmap = QPixmap(16, 16)
-        icon_pixmap.fill(QColor("#4A90D9"))
-        self._tray_icon = QSystemTrayIcon(QIcon(icon_pixmap), self)
-        self._tray_icon.setToolTip("modInteractive - AI Kiosk System")
+        try:
+            # Create a simple icon using a pixmap (16x16)
+            icon_pixmap = QPixmap(16, 16)
+            icon_pixmap.fill(QColor("#4A90D9"))
+            self._tray_icon = QSystemTrayIcon(QIcon(icon_pixmap), self)
+            self._tray_icon.setToolTip("modInteractive - AI Kiosk System")
 
-        # Tray context menu
-        tray_menu = QMenu()
+            # Tray context menu
+            tray_menu = QMenu()
 
-        show_action = QAction("Show Window", self)
-        show_action.triggered.connect(self.show_normal)
-        tray_menu.addAction(show_action)
+            show_action = QAction("Show Window", self)
+            show_action.triggered.connect(self.show_normal)
+            tray_menu.addAction(show_action)
 
-        start_action = QAction("▶ Start System", self)
-        start_action.triggered.connect(self._tray_start_system)
-        tray_menu.addAction(start_action)
+            start_action = QAction("▶ Start System", self)
+            start_action.triggered.connect(self._tray_start_system)
+            tray_menu.addAction(start_action)
 
-        stop_action = QAction("■ Stop System", self)
-        stop_action.triggered.connect(self._tray_stop_system)
-        tray_menu.addAction(stop_action)
+            stop_action = QAction("■ Stop System", self)
+            stop_action.triggered.connect(self._tray_stop_system)
+            tray_menu.addAction(stop_action)
 
-        tray_menu.addSeparator()
+            tray_menu.addSeparator()
 
-        toggle_theme_action = QAction("Toggle Theme", self)
-        toggle_theme_action.triggered.connect(self._toggle_theme)
-        tray_menu.addAction(toggle_theme_action)
+            toggle_theme_action = QAction("Toggle Theme", self)
+            toggle_theme_action.triggered.connect(self._toggle_theme)
+            tray_menu.addAction(toggle_theme_action)
 
-        tray_menu.addSeparator()
+            tray_menu.addSeparator()
 
-        quit_action = QAction("Quit", self)
-        quit_action.triggered.connect(QApplication.quit)
-        tray_menu.addAction(quit_action)
+            quit_action = QAction("Quit", self)
+            quit_action.triggered.connect(QApplication.quit)
+            tray_menu.addAction(quit_action)
 
-        self._tray_icon.setContextMenu(tray_menu)
+            self._tray_icon.setContextMenu(tray_menu)
 
-        # Double-click to restore
-        self._tray_icon.activated.connect(self._on_tray_activated)
+            # Double-click to restore
+            self._tray_icon.activated.connect(self._on_tray_activated)
 
-        self._tray_icon.show()
-        logger.info("System tray icon created")
+            self._tray_icon.show()
+            logger.info("System tray icon created")
+        except Exception:
+            logger.warning("System tray not available on this system")
 
     # ──────────────────────────────────────────
     # Event Bus Subscriptions

@@ -76,7 +76,7 @@ install_system_deps() {
         python3-pip \
         python3-venv \
         python3-dev \
-        libgl1-mesa-glx \
+        libgl1-mesa-dri \
         libglib2.0-0 \
         libsm6 \
         libxext6 \
@@ -206,10 +206,10 @@ model.save('${YOLO_MODEL}')
 print('YOLOv8n model downloaded successfully')
 " || {
         log_warn "Failed to download via ultralytics, trying direct download..."
-        wget -q -O "${YOLO_MODEL}" "https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n.pt" || {
+        wget -q -O "${YOLO_MODEL}" "https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8n.pt" || {
             log_err "Failed to download YOLO model"
             log_err "You can download manually:"
-            log_err "  wget https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n.pt -O ${YOLO_MODEL}"
+            log_err "  wget https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8n.pt -O ${YOLO_MODEL}"
         }
     }
 
@@ -283,6 +283,7 @@ set_permissions() {
     # Make sure pi user can read/write logs and videos
     chmod -R 775 "${INSTALL_DIR}/logs"
     chmod -R 775 "${INSTALL_DIR}/videos"
+    usermod -aG video pi
     log_ok "Permissions set"
 }
 
