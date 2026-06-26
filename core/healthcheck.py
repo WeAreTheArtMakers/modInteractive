@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import os
 import socket
+import shutil
 from pathlib import Path
 
 import cv2
@@ -70,6 +71,7 @@ class HealthCheck:
         self._check_video_file()
         self._check_opencv()
         self._check_admin_port()
+        self._check_venv()
         return self._results
 
     def _check_config(self) -> None:
@@ -98,7 +100,6 @@ class HealthCheck:
 
     def _check_mpv(self) -> None:
         """Check if mpv player is available."""
-        import shutil
         mpv_path = shutil.which("mpv")
         if mpv_path:
             self._ok("mpv found", mpv_path)
@@ -148,7 +149,6 @@ class HealthCheck:
         """Check OpenCV import and version."""
         try:
             version = cv2.__version__
-            # Test basic functionality
             import numpy as np
             test_img = np.zeros((100, 100, 3), dtype=np.uint8)
             success = test_img.shape == (100, 100, 3)
@@ -166,7 +166,6 @@ class HealthCheck:
             return
 
         port = self._config.get("admin.port", 8080)
-        host = self._config.get("admin.host", "0.0.0.0")
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             result = sock.connect_ex(("127.0.0.1", port))
@@ -180,6 +179,20 @@ class HealthCheck:
         except Exception as e:
             self._warn("Admin panel",
                        f"Port check failed: {e}")
+
+    def _check_venv(self) -> None:
+        """Check virtual environment path for systemd service."""
+        venv_python = "/opt/modInteractive/venv/bin/python"
+        alt_venv = "/opt/modInteractive/.venv/bin/python"
+        if os.path.isfile(venv_python):
+            self._ok("Virtualenv path",
+                     f"{venv_python} exists")
+        elif os.path.isfile(alt_venv):
+            self._warn("Virtualenv path",
+                       f"{alt_venv} exists (expected {venv_python})")
+        else:
+            self._warn("Virtualenv path",
+                       "Not installed yet (only matters after install)")
 
     def print_report(self) -> None:
         """Print formatted health check report to stdout."""

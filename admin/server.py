@@ -125,7 +125,10 @@ def get_status() -> Any:
 
 @app.route("/api/test-video", methods=["POST"])
 def test_video() -> Any:
-    """Test video playback using mpv.
+    """Test video playback using mpv safely.
+
+    Only files under the videos/ directory are accepted.
+    Command is built as a list to prevent shell injection.
 
     Returns:
         Success status
@@ -137,8 +140,13 @@ def test_video() -> Any:
     if not mpv_path:
         return jsonify({"error": "mpv not installed"}), 500
 
-    video_path = _config_data.get("video", {}).get("path", "videos/selamlama.mp4")
-    abs_path = os.path.abspath(video_path)
+    video_rel = _config_data.get("video", {}).get("path", "videos/selamlama.mp4")
+    abs_path = os.path.abspath(video_rel)
+
+    # Path traversal prevention: only videos/ directory
+    allowed = os.path.abspath("videos")
+    if not abs_path.startswith(allowed):
+        return jsonify({"error": "Only videos/ directory files are allowed"}), 403
 
     if not os.path.exists(abs_path):
         return jsonify({"error": f"Video not found: {abs_path}"}), 404
@@ -177,7 +185,6 @@ def get_logs() -> Any:
     try:
         with open(log_file, "r") as f:
             lines = f.readlines()
-        # Return last 100 lines
         return jsonify({"logs": lines[-100:]})
     except Exception as e:
         return jsonify({"error": str(e)}), 500

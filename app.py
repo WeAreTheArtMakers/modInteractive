@@ -25,27 +25,30 @@ logger = logging.getLogger("modInteractive.app")
 def _start_admin_thread(config: Config, config_path: str) -> Optional[object]:
     """Start admin panel in background thread if enabled.
 
+    Operates independently: if the panel fails, the main motion detection
+    and video playback system continues unaffected.
+
     Args:
         config: Application config
         config_path: Path to config file
 
     Returns:
-        Admin thread or None
+        Admin thread object or None
     """
     if not config.get("admin.enabled", True):
         logger.info("Admin panel disabled in config")
         return None
 
     try:
-        from admin.server import start_admin_thread  # type: ignore
-        thread = start_admin_thread(config, config_path)
+        from admin.server import start_admin_thread as _start
+        thread = _start(config, config_path)
         logger.info("Admin panel started on port %d",
                      config.get("admin.port", 8080))
         return thread
-    except ImportError as e:
-        logger.warning("Admin panel not available (flask not installed?): %s", e)
-    except Exception as e:
-        logger.warning("Admin panel failed to start: %s", e)
+    except ImportError:
+        logger.info("Admin panel skipped (flask not installed)")
+    except Exception:
+        logger.exception("Admin panel failed to start, continuing without admin")
 
     return None
 

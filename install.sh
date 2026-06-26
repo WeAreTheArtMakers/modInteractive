@@ -95,33 +95,27 @@ echo ""
 #------------------------------------------------------------------------------
 info "Step 3/6: Copying application files..."
 
-# Python files
-cp "${SOURCE_DIR}/main.py"              "${INSTALL_DIR}/main.py"
-cp "${SOURCE_DIR}/app.py"               "${INSTALL_DIR}/app.py"
-cp "${SOURCE_DIR}/config.json"          "${INSTALL_DIR}/config.json"
-cp "${SOURCE_DIR}/requirements.txt"     "${INSTALL_DIR}/requirements.txt"
+cp "${SOURCE_DIR}/main.py"          "${INSTALL_DIR}/main.py"
+cp "${SOURCE_DIR}/app.py"           "${INSTALL_DIR}/app.py"
+cp "${SOURCE_DIR}/config.json"      "${INSTALL_DIR}/config.json"
+cp "${SOURCE_DIR}/requirements.txt" "${INSTALL_DIR}/requirements.txt"
 
-# Core modules
 for pyfile in "${SOURCE_DIR}/core/"*.py; do
     cp "${pyfile}" "${INSTALL_DIR}/core/"
 done
 
-# Admin panel
 if [[ -d "${SOURCE_DIR}/admin" ]]; then
     cp -r "${SOURCE_DIR}/admin/"* "${INSTALL_DIR}/admin/"
 fi
 
-# Systemd service file (to both service dir and local copy)
 if [[ -f "${SOURCE_DIR}/${SERVICE_SRC}" ]]; then
     cp "${SOURCE_DIR}/${SERVICE_SRC}" "${INSTALL_DIR}/systemd/"
 fi
 
-# Video files
 if ls "${SOURCE_DIR}/videos/"*.mp4 1>/dev/null 2>&1; then
     cp "${SOURCE_DIR}/videos/"*.mp4 "${INSTALL_DIR}/videos/"
 fi
 
-# Set ownership
 REAL_USER="${SUDO_USER:-pi}"
 chown -R "${REAL_USER}":"${REAL_USER}" "${INSTALL_DIR}" 2>/dev/null || true
 chmod -R 755 "${INSTALL_DIR}"
@@ -130,7 +124,7 @@ success "Application files copied"
 echo ""
 
 #------------------------------------------------------------------------------
-# Step 4: Create Python virtual environment with system-site-packages
+# Step 4: Create Python virtual environment
 #------------------------------------------------------------------------------
 info "Step 4/6: Creating Python virtual environment..."
 
@@ -141,7 +135,6 @@ else
     success "Virtual environment created with --system-site-packages"
 fi
 
-# Upgrade pip
 "${VENV_DIR}/bin/pip" install --upgrade pip --quiet
 
 success "Virtualenv: ${VENV_DIR}"
@@ -165,7 +158,6 @@ if [[ -f "${SOURCE_DIR}/${SERVICE_SRC}" ]]; then
     cp "${SOURCE_DIR}/${SERVICE_SRC}" "${SERVICE_DST}"
     chmod 644 "${SERVICE_DST}"
 
-    # Update user/group in service file
     REAL_USER="${SUDO_USER:-pi}"
     REAL_GROUP=$(id -gn "${REAL_USER}" 2>/dev/null || echo "pi")
     REAL_UID=$(id -u "${REAL_USER}" 2>/dev/null || echo "1000")
@@ -173,8 +165,6 @@ if [[ -f "${SOURCE_DIR}/${SERVICE_SRC}" ]]; then
     sed -i "s/User=pi/User=${REAL_USER}/" "${SERVICE_DST}"
     sed -i "s/Group=pi/Group=${REAL_GROUP}/" "${SERVICE_DST}"
     sed -i "s|/run/user/1000|/run/user/${REAL_UID}|" "${SERVICE_DST}"
-
-    # Fix virtualenv path if .venv was used (ensure consistency)
     sed -i "s|/opt/modInteractive/.venv|${VENV_DIR}|g" "${SERVICE_DST}"
 
     systemctl daemon-reload
@@ -192,7 +182,7 @@ echo ""
 #------------------------------------------------------------------------------
 if ! ls "${INSTALL_DIR}/videos/"*.mp4 1>/dev/null 2>&1; then
     warning "No video files found in ${INSTALL_DIR}/videos/"
-    warning "Add a greeting video before starting the service:"
+    warning "Add a greeting video before starting:"
     warning "  cp your_video.mp4 ${INSTALL_DIR}/videos/selamlama.mp4"
     warning "  sudo chown -R ${REAL_USER:-pi}:${REAL_USER:-pi} ${INSTALL_DIR}/videos/"
 fi
@@ -213,19 +203,17 @@ info "  1. Add a video file:"
 info "     cp your_video.mp4 ${INSTALL_DIR}/videos/selamlama.mp4"
 info "     sudo chown -R ${REAL_USER:-pi}:${REAL_USER:-pi} ${INSTALL_DIR}/videos/"
 info ""
-info "  2. Test the application:"
+info "  2. Test:"
 info "     sudo -u ${REAL_USER:-pi} ${VENV_DIR}/bin/python ${INSTALL_DIR}/main.py --check"
 info ""
-info "  3. Start the service:"
+info "  3. Start service:"
 info "     sudo systemctl start ${SERVICE_NAME}"
 info ""
-info "  4. Check status:"
+info "  4. Status + logs:"
 info "     sudo systemctl status ${SERVICE_NAME}"
-info ""
-info "  5. View logs:"
 info "     journalctl -u ${SERVICE_NAME} -f"
 echo ""
-info "  6. Admin panel (if enabled):"
+info "  5. Admin panel (if enabled):"
 info "     http://$(hostname -I 2>/dev/null | awk '{print $1}'):8080"
 echo ""
 
