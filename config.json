@@ -42,7 +42,9 @@
     "fullscreen": true,
     "playback_mode": "single",
     "loop_videos": false,
-    "playlist": ["videos/selamlama.mp4"]
+    "playlist": [
+      "videos/selamlama.mp4"
+    ]
   },
   "ui": {
     "theme": "dark",
@@ -53,6 +55,10 @@
   },
   "plugins": {
     "enabled": [],
-    "paths": ["plugins/detection", "plugins/playback", "plugins/ui"]
+    "paths": [
+      "plugins/detection",
+      "plugins/playback",
+      "plugins/ui"
+    ]
   }
 }
