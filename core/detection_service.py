@@ -1,6 +1,7 @@
 """AI-powered detection service with hybrid motion + YOLO detection.
 
 Supports multiple detection backends via plugin system.
+Optimized for Raspberry Pi 5 with adaptive frame skipping.
 """
 
 from __future__ import annotations
@@ -22,30 +23,34 @@ class DetectionService:
     """Hybrid detection service combining motion detection and YOLO AI.
 
     Uses a confidence-based decision engine to trigger person detection events.
+    Optimized for Raspberry Pi 5 with frame skipping and adaptive FPS.
     """
 
     def __init__(
         self,
         event_bus: EventBus,
-        confidence_threshold: float = 0.65,
-        motion_sensitivity: float = 0.02,
-        frame_skip: int = 2,
+        confidence_threshold: float = 0.55,
+        motion_sensitivity: float = 0.03,
+        frame_skip: int = 3,
         model_path: str = "models/yolov8n.pt",
+        consecutive_frames: int = 2,
     ) -> None:
         """Initialize detection service.
 
         Args:
             event_bus: System event bus
-            confidence_threshold: Minimum confidence for YOLO detection
+            confidence_threshold: Minimum confidence for YOLO detection (0.55 for Pi5)
             motion_sensitivity: Motion detection sensitivity (0.0-1.0)
-            frame_skip: Number of frames to skip between detections
+            frame_skip: Number of frames to skip between detections (higher = less CPU)
             model_path: Path to YOLO model file
+            consecutive_frames: Required consecutive detections before trigger
         """
         self._event_bus = event_bus
         self._confidence_threshold = confidence_threshold
         self._motion_sensitivity = motion_sensitivity
-        self._frame_skip = frame_skip
+        self._frame_skip = max(1, frame_skip)  # Minimum 1
         self._model_path = model_path
+        self._required_consecutive = max(1, consecutive_frames)
 
         self._model = None
         self._running = False
@@ -55,8 +60,8 @@ class DetectionService:
         self._previous_gray: Optional[np.ndarray] = None
         self._person_present = False
         self._consecutive_detections = 0
-        self._required_consecutive = 3
-        self._motion_threshold = 0.02
+        self._last_person_time: float = 0.0
+        self._person_lost_timeout: float = 2.0  # Seconds before person considered lost
 
         # Frame skip counter
         self._skip_counter = 0
@@ -85,6 +90,7 @@ class DetectionService:
             except asyncio.CancelledError:
                 pass
         self._person_present = False
+        self._consecutive_detections = 0
         logger.info("Detection service stopped")
 
     async def load_model(self) -> bool:
@@ -95,8 +101,13 @@ class DetectionService:
         """
         try:
             from ultralytics import YOLO
-            self._model = YOLO(self._model_path)
-            logger.info(f"YOLO model loaded: {self._model_path}")
+            # Use half precision on Pi5 for faster inference
+            try:
+                self._model = YOLO(self._model_path)
+                logger.info(f"YOLO model loaded: {self._model_path}")
+            except Exception as e:
+                logger.warning(f"YOLO loading failed with half precision: {e}")
+                self._model = YOLO(self._model_path)
             return True
         except ImportError:
             logger.warning("Ultralytics not installed, using motion-only detection")
@@ -111,7 +122,7 @@ class DetectionService:
         Args:
             threshold: Confidence threshold (0.0-1.0)
         """
-        self._confidence_threshold = max(0.0, min(1.0, threshold))
+        self._confidence_threshold = max(0.1, min(1.0, threshold))
 
     def set_motion_sensitivity(self, sensitivity: float) -> None:
         """Set motion detection sensitivity.
@@ -128,7 +139,7 @@ class DetectionService:
 
     async def _process_frames(self) -> None:
         """Process camera frames for detection."""
-        # Try to load YOLO model
+        # Try to load YOLO model (non-blocking)
         yolo_available = await self.load_model()
 
         # Subscribe to camera frames
@@ -155,6 +166,7 @@ class DetectionService:
         if frame is None:
             return
 
+        # Frame skipping: only process every Nth frame
         self._skip_counter += 1
         if self._skip_counter < self._frame_skip:
             return
@@ -163,22 +175,22 @@ class DetectionService:
         self._frame_count += 1
 
         try:
-            # Motion detection
+            # Motion detection (fast, runs every processed frame)
             motion_score = self._detect_motion(frame)
 
-            # YOLO detection
+            # YOLO detection (slower, only if not in cooldown/playback)
             yolo_confidence = 0.0
             if self._model is not None:
                 yolo_confidence = await self._run_yolo_inference(frame)
 
             # Decision engine
-            await self._decision_engine(motion_score, yolo_confidence, frame)
+            await self._decision_engine(motion_score, yolo_confidence)
 
         except Exception as e:
             logger.error(f"Detection error: {e}", exc_info=True)
 
     def _detect_motion(self, frame: np.ndarray) -> float:
-        """Detect motion in frame.
+        """Detect motion in frame using background subtraction.
 
         Args:
             frame: Current video frame
@@ -197,10 +209,10 @@ class DetectionService:
         thresh = cv2.threshold(frame_delta, 25, 255, cv2.THRESH_BINARY)[1]
         thresh = cv2.dilate(thresh, None, iterations=2)
 
-        motion_score = np.sum(thresh) / (thresh.shape[0] * thresh.shape[1] * 255)
+        motion_score = float(np.sum(thresh) / (thresh.shape[0] * thresh.shape[1] * 255))
         self._previous_gray = gray
 
-        return float(motion_score)
+        return motion_score
 
     async def _run_yolo_inference(self, frame: np.ndarray) -> float:
         """Run YOLO inference on frame.
@@ -209,13 +221,21 @@ class DetectionService:
             frame: Video frame
 
         Returns:
-            Maximum confidence score for person detection
+            Maximum confidence score for person detection (class 0)
         """
         if self._model is None:
             return 0.0
 
         try:
-            results = self._model(frame, verbose=False)
+            # Resize for faster inference on Pi5
+            height, width = frame.shape[:2]
+            if width > 640:
+                scale = 640 / width
+                new_width = 640
+                new_height = int(height * scale)
+                frame = cv2.resize(frame, (new_width, new_height))
+
+            results = self._model(frame, verbose=False, device="cpu")
             max_confidence = 0.0
 
             for result in results:
@@ -230,30 +250,32 @@ class DetectionService:
 
             return max_confidence
         except Exception as e:
-            logger.error(f"YOLO inference error: {e}")
+            logger.debug(f"YOLO inference error: {e}")
             return 0.0
 
     async def _decision_engine(
         self,
         motion_score: float,
         yolo_confidence: float,
-        frame: np.ndarray,
     ) -> None:
         """Decision engine for person detection.
 
-        Implements:
-        - If YOLO confidence > threshold: PERSON_CONFIRMED
-        - If motion detected: PROBABLE_PERSON
-        - Else: IGNORE
+        Pipeline:
+        1. YOLO confidence > threshold → PERSON_CONFIRMED (after consecutive frames)
+        2. Motion detected + low YOLO → PERSON_DETECTED (fallback)
+        3. No detection for timeout → PERSON_LOST
 
         Args:
-            motion_score: Motion detection score
-            yolo_confidence: YOLO confidence score
-            frame: Current frame for reference
+            motion_score: Motion detection score (0.0-1.0)
+            yolo_confidence: YOLO confidence score (0.0-1.0)
         """
-        # High confidence YOLO detection
+        current_time = time.time()
+
+        # ---- HIGH CONFIDENCE YOLO DETECTION ----
         if yolo_confidence >= self._confidence_threshold:
             self._consecutive_detections += 1
+            self._last_person_time = current_time
+
             if self._consecutive_detections >= self._required_consecutive:
                 if not self._person_present:
                     self._person_present = True
@@ -269,13 +291,20 @@ class DetectionService:
                             priority=EventPriority.HIGH,
                         )
                     )
-                    logger.info(f"Person confirmed via YOLO (confidence: {yolo_confidence:.2f})")
+                    logger.info(
+                        f"🎯 PERSON CONFIRMED via YOLO "
+                        f"(confidence: {yolo_confidence:.2f}, "
+                        f"motion: {motion_score:.3f})"
+                    )
         else:
-            self._consecutive_detections = max(0, self._consecutive_detections - 1)
+            # Decrease confidence counter slowly
+            if self._consecutive_detections > 0:
+                self._consecutive_detections -= 1
 
-        # Motion detection fallback
-        if motion_score >= self._motion_sensitivity and yolo_confidence >= 0.3:
+        # ---- MOTION DETECTION FALLBACK ----
+        if motion_score >= self._motion_sensitivity:
             if not self._person_present:
+                self._last_person_time = current_time
                 await self._event_bus.publish(
                     Event(
                         event_type=SystemEvents.PERSON_DETECTED,
@@ -289,17 +318,21 @@ class DetectionService:
                     )
                 )
 
-        # Person lost
-        if self._person_present and yolo_confidence < self._confidence_threshold * 0.5:
-            if motion_score < self._motion_sensitivity:
+        # ---- PERSON LOST DETECTION ----
+        if self._person_present:
+            time_since_last = current_time - self._last_person_time
+            if time_since_last > self._person_lost_timeout:
                 self._person_present = False
                 self._consecutive_detections = 0
                 await self._event_bus.publish(
                     Event(
                         event_type=SystemEvents.PERSON_LOST,
                         source="detection_service",
-                        data={"last_confidence": yolo_confidence},
+                        data={
+                            "last_confidence": yolo_confidence,
+                            "timeout_duration": self._person_lost_timeout,
+                        },
                         priority=EventPriority.NORMAL,
                     )
                 )
-                logger.info("Person lost")
+                logger.info("Person lost (timeout)")

@@ -3,7 +3,7 @@
     "name": "modInteractive",
     "version": "2.0.0",
     "log_level": "INFO",
-    "log_retention_days": 30,
+    "log_retention_days": 7,
     "auto_start": true,
     "watchdog_timeout": 10
   },
@@ -17,14 +17,14 @@
     "brightness": 0,
     "contrast": 0,
     "auto_reconnect": true,
-    "reconnect_interval": 2
+    "reconnect_interval": 3
   },
   "detection": {
     "mode": "hybrid",
-    "confidence_threshold": 0.65,
-    "cooldown_seconds": 10,
-    "frame_skip": 2,
-    "motion_sensitivity": 0.02,
+    "confidence_threshold": 0.55,
+    "cooldown_seconds": 8,
+    "frame_skip": 3,
+    "motion_sensitivity": 0.03,
     "enable_roi": false,
     "roi": {
       "x": 0,
@@ -32,22 +32,24 @@
       "width": 1,
       "height": 1
     },
-    "model_path": "models/yolov8n.pt"
+    "model_path": "models/yolov8n.pt",
+    "consecutive_frames": 2
   },
   "video": {
-    "fade_in_duration": 1.0,
-    "fade_out_duration": 1.0,
-    "volume": 80,
+    "fade_in_duration": 0.8,
+    "fade_out_duration": 0.8,
+    "volume": 90,
     "fullscreen": true,
-    "playback_mode": "random",
+    "playback_mode": "single",
     "loop_videos": false,
-    "playlist": []
+    "playlist": ["videos/selamlama.mp4"]
   },
   "ui": {
     "theme": "dark",
     "language": "en",
     "touchscreen_mode": true,
-    "show_preview": true
+    "show_preview": false,
+    "headless": false
   },
   "plugins": {
     "enabled": [],

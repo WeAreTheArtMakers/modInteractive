@@ -24,8 +24,9 @@ class TestDetectionService(unittest.IsolatedAsyncioTestCase):
             event_bus=self.mock_event_bus,
             confidence_threshold=0.65,
             motion_sensitivity=0.02,
-            frame_skip=0,
+            frame_skip=1,
             model_path="models/yolov8n.pt",
+            consecutive_frames=2,
         )
 
     def tearDown(self):
@@ -71,7 +72,6 @@ class TestDetectionService(unittest.IsolatedAsyncioTestCase):
         await self.service._decision_engine(
             motion_score=0.01,
             yolo_confidence=0.85,
-            frame=frame,
         )
         # Should have triggered consecutive detection
         self.assertEqual(self.service._consecutive_detections, 1)
@@ -81,7 +81,6 @@ class TestDetectionService(unittest.IsolatedAsyncioTestCase):
             await self.service._decision_engine(
                 motion_score=0.01,
                 yolo_confidence=0.85,
-                frame=frame,
             )
 
         self.assertTrue(self.service._person_present)
@@ -104,7 +103,6 @@ class TestDetectionService(unittest.IsolatedAsyncioTestCase):
         await self.service._decision_engine(
             motion_score=0.05,
             yolo_confidence=0.35,
-            frame=frame,
         )
 
         # Should have triggered PERSON_DETECTED via motion fallback
@@ -118,28 +116,27 @@ class TestDetectionService(unittest.IsolatedAsyncioTestCase):
         await self.service._decision_engine(
             motion_score=0.001,
             yolo_confidence=0.05,
-            frame=frame,
         )
 
         self.assertFalse(self.service._person_present)
         self.assertEqual(self.service._consecutive_detections, 0)
 
     async def test_decision_engine_person_lost(self):
-        """Test the person lost transition in decision engine."""
+        """Test the person lost transition in decision engine via timeout."""
         frame = np.ones((100, 100, 3), dtype=np.uint8) * 128
 
         # First establish person present
         self.service._person_present = True
         self.service._consecutive_detections = 3
+        self.service._last_person_time = 0  # Force timeout
 
         # Then drop confidence significantly with no motion
         await self.service._decision_engine(
             motion_score=0.001,
             yolo_confidence=0.1,
-            frame=frame,
         )
 
-        # Person should be lost
+        # Person should be lost due to timeout
         self.assertFalse(self.service._person_present)
         self.assertEqual(self.service._consecutive_detections, 0)
 
@@ -166,9 +163,9 @@ class TestDetectionService(unittest.IsolatedAsyncioTestCase):
         self.service.set_confidence_threshold(0.5)
         self.assertEqual(self.service._confidence_threshold, 0.5)
 
-        # Test clamping
+        # Test clamping (min is 0.1)
         self.service.set_confidence_threshold(-0.1)
-        self.assertEqual(self.service._confidence_threshold, 0.0)
+        self.assertEqual(self.service._confidence_threshold, 0.1)
 
         self.service.set_confidence_threshold(1.5)
         self.assertEqual(self.service._confidence_threshold, 1.0)

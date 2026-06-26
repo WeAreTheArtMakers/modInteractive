@@ -22,10 +22,10 @@ Thumbs.db
 # Project specific
 logs/*.db
 logs/*.log
-videos/*
-!videos/.gitkeep
 models/*.pt
-!models/.gitkeep
 
-# Assets
+# Assets (keep scripts)
 assets/scripts/
+
+# Keep sample videos
+!videos/*.mp4
