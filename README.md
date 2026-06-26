@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/modinteractive-logo.svg" alt="modInteractive logo" width="760">
+  <img src="assets/modinteracitve-logo.png" alt="modInteractive logo" width="760">
 </p>
 
 # modInteractive
