@@ -1,18 +1,33 @@
 {
-  "video_path": "videos/selamlama.mp4",
-  "camera_index": 0,
-  "camera_width": 640,
-  "camera_height": 480,
-  "camera_fps": 15,
-  "detection_enabled": true,
-  "detection_mode": "motion",
-  "detection_confidence": 0.5,
-  "motion_sensitivity": 500,
-  "cooldown_seconds": 10,
-  "fullscreen": true,
-  "log_level": "INFO",
-  "log_max_bytes": 5242880,
-  "log_backup_count": 3,
-  "player": "mpv",
-  "player_volume": 90
+  "system": {
+    "log_level": "INFO",
+    "project_name": "modInteractive"
+  },
+  "camera": {
+    "index": 0,
+    "width": 640,
+    "height": 480,
+    "fps": 15,
+    "backend": "v4l2"
+  },
+  "detection": {
+    "enabled": true,
+    "mode": "motion",
+    "motion_sensitivity": 500,
+    "min_motion_area": 1500,
+    "frame_skip": 3,
+    "warmup_seconds": 2,
+    "cooldown_seconds": 10
+  },
+  "video": {
+    "path": "videos/selamlama.mp4",
+    "fullscreen": true,
+    "volume": 90,
+    "player": "mpv"
+  },
+  "admin": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 8080
+  }
 }

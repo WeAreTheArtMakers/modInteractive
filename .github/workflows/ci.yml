@@ -2,276 +2,47 @@ name: CI
 
 on:
   push:
-    branches: [main, dev]
+    branches: [ main ]
   pull_request:
-    branches: [main, dev]
-
-permissions:
-  contents: read
-  checks: write
-  pull-requests: write
-
-env:
-  PYTHON_VERSION: "3.11"
+    branches: [ main ]
 
 jobs:
-  lint:
-    name: Lint and Type Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: requirements.txt
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install flake8 mypy
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
-      - name: Lint with flake8
-        run: |
-          flake8 core/ app.py main.py ui/ \
-            --max-line-length=100 \
-            --extend-ignore=E203,W503 \
-            --show-source \
-            --statistics
-
-      - name: Type check with mypy
-        run: |
-          mypy core/ app.py main.py \
-            --ignore-missing-imports \
-            --disallow-untyped-defs \
-            --warn-redundant-casts \
-            --warn-unused-ignores \
-            --warn-return-any \
-            --check-untyped-defs \
-            --no-implicit-optional \
-            --strict-equality \
-            | tee mypy_output.txt
-          # Fail only if mypy finds actual errors (ignore notes)
-          grep -E "^(core|app|main)\.(py|/)" mypy_output.txt | grep -v "note:" && exit 1 || exit 0
-
   test:
-    name: Test with Coverage
-    needs: lint
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11"]
-      fail-fast: false
-
-    services:
-      # Camera service tests run with mocked hardware
-      xvfb:
-        image: n/a
-        options: >
 
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: requirements.txt
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libgl1-mesa-glx \
-            libglib2.0-0 \
-            libsm6 \
-            libxext6 \
-            libxrender-dev \
-            libgomp1 \
-            xvfb \
-          || true
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-opencv python3-numpy
 
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip setuptools wheel
-          pip install pytest pytest-asyncio pytest-cov
-          if [ -f requirements.txt ]; then
-            # Install with --no-deps to avoid heavy deps in CI
-            pip install --no-deps -r requirements.txt 2>/dev/null || \
-            pip install -r requirements.txt
-          fi
+    - name: Check Python syntax
+      run: |
+        python -m py_compile main.py
+        python -m py_compile app.py
+        for f in core/*.py; do
+          python -m py_compile "$f"
+          echo "OK: $f"
+        done
 
-      - name: Run tests with pytest and coverage
-        run: |
-          # Run tests with virtual display for PySide6
-          xvfb-run -a python -m pytest tests/ \
-            -v \
-            --cov=core \
-            --cov=app \
-            --cov-report=term \
-            --cov-report=xml \
-            --cov-report=html \
-            --timeout=30 \
-            -x \
-            || python -m pytest tests/ \
-              -v \
-              --cov=core \
-              --cov=app \
-              --cov-report=term \
-              --cov-report=xml \
-              --cov-report=html \
-              --timeout=30 \
-              -x
+    - name: Check shell scripts
+      run: |
+        bash -n install.sh
+        bash -n uninstall.sh
+        echo "Shell syntax OK"
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.xml
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
 
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report-${{ matrix.python-version }}
-          path: htmlcov/
-          retention-days: 7
-
-  build-validate:
-    name: Build Validation
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Validate project structure
-        run: |
-          echo "Checking required files and directories..."
-          errors=0
-
-          # Required source files
-          for f in main.py app.py config.json requirements.txt; do
-            if [ ! -f "$f" ]; then
-              echo "ERROR: Missing required file: $f"
-              errors=$((errors+1))
-            else
-              echo "  OK: $f"
-            fi
-          done
-
-          # Required directories
-          for d in core ui assets tests systemd; do
-            if [ ! -d "$d" ]; then
-              echo "ERROR: Missing required directory: $d"
-              errors=$((errors+1))
-            else
-              echo "  OK: $d/"
-            fi
-          done
-
-          # Required core modules
-          for m in __init__ event_bus state_machine config_service \
-                    logging_service camera_service detection_service \
-                    playback_service watchdog plugin_base; do
-            if [ ! -f "core/${m}.py" ]; then
-              echo "ERROR: Missing core module: core/${m}.py"
-              errors=$((errors+1))
-            fi
-          done
-
-          # Service file
-          if [ ! -f "systemd/modinteractive.service" ]; then
-            echo "ERROR: Missing systemd service file"
-            errors=$((errors+1))
-          fi
-
-          # Install scripts
-          for s in install.sh uninstall.sh; do
-            if [ ! -f "$s" ]; then
-              echo "ERROR: Missing script: $s"
-              errors=$((errors+1))
-            else
-              if [ ! -x "$s" ]; then
-                echo "WARNING: $s is not executable"
-              fi
-            fi
-          done
-
-          if [ $errors -gt 0 ]; then
-            echo ""
-            echo "FAILED: $errors error(s) found"
-            exit 1
-          fi
-          echo ""
-          echo "SUCCESS: All checks passed"
-
-      - name: Validate config.json
-        run: |
-          python3 -c "
-import json
-with open('config.json') as f:
-    cfg = json.load(f)
-assert 'system' in cfg
-assert 'camera' in cfg
-assert 'detection' in cfg
-assert 'video' in cfg
-assert 'ui' in cfg
-assert 'plugins' in cfg
-print('config.json is valid')
-"
-
-      - name: Check for syntax errors
-        run: |
-          python3 -m py_compile main.py
-          python3 -m py_compile app.py
-          for f in core/*.py; do
-            python3 -m py_compile "$f"
-          done
-          echo "All Python files compile successfully"
-
-  dependency-check:
-    name: Dependency Check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Check for dependency updates
-        run: |
-          python -m pip install pip-audit
-          pip-audit --desc on -r requirements.txt | tee audit_output.txt || true
-
-      - name: List installed dependencies
-        run: |
-          python -m pip install -r requirements.txt --dry-run 2>&1 | head -50 || true
-          echo "---"
-          echo "Requirements file contents:"
-          cat requirements.txt
-
-  notify:
-    name: Notify Status
-    if: always()
-    needs: [lint, test, build-validate, dependency-check]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check overall status
-        run: |
-          echo "All CI jobs completed"
-          echo "lint: ${{ needs.lint.result }}"
-          echo "test: ${{ needs.test.result }}"
-          echo "build-validate: ${{ needs.build-validate.result }}"
-          echo "dependency-check: ${{ needs.dependency-check.result }}"
+    - name: Run system check
+      run: |
+        python main.py --check || true

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>modInteractive Admin</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>modInteractive</h1>
+            <p class="subtitle">Motion Triggered Video Display — Admin Panel</p>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab active" data-tab="config">Configuration</button>
+            <button class="tab" data-tab="status">Status</button>
+            <button class="tab" data-tab="logs">Logs</button>
+        </nav>
+
+        <section id="config" class="tab-content active">
+            <h2>Configuration</h2>
+            <form id="config-form">
+                <fieldset>
+                    <legend>Camera</legend>
+                    <label>Device Index:
+                        <input type="number" name="camera.index" id="camera-index" min="0" max="10">
+                    </label>
+                    <label>Resolution:
+                        <input type="number" name="camera.width" id="camera-width" placeholder="640">
+                        x
+                        <input type="number" name="camera.height" id="camera-height" placeholder="480">
+                    </label>
+                    <label>FPS:
+                        <input type="number" name="camera.fps" id="camera-fps" min="1" max="60">
+                    </label>
+                </fieldset>
+
+                <fieldset>
+                    <legend>Detection</legend>
+                    <label>Motion Sensitivity:
+                        <input type="range" name="detection.motion_sensitivity" id="motion-sensitivity"
+                               min="100" max="5000" step="100">
+                        <span id="motion-sensitivity-value"></span>
+                    </label>
+                    <label>Min Motion Area (pixels):
+                        <input type="number" name="detection.min_motion_area" id="min-motion-area"
+                               min="500" max="50000" step="100">
+                    </label>
+                    <label>Cooldown (seconds):
+                        <input type="number" name="detection.cooldown_seconds" id="cooldown-seconds"
+                               min="1" max="120">
+                    </label>
+                    <label>Frame Skip:
+                        <input type="number" name="detection.frame_skip" id="frame-skip" min="1" max="10">
+                    </label>
+                </fieldset>
+
+                <fieldset>
+                    <legend>Video</legend>
+                    <label>Video Path:
+                        <input type="text" name="video.path" id="video-path">
+                    </label>
+                    <label>Volume (0-100):
+                        <input type="number" name="video.volume" id="video-volume" min="0" max="100">
+                    </label>
+                    <label>
+                        <input type="checkbox" name="video.fullscreen" id="video-fullscreen">
+                        Fullscreen
+                    </label>
+                </fieldset>
+
+                <div class="actions">
+                    <button type="submit" class="btn btn-primary">Save Configuration</button>
+                    <button type="button" class="btn btn-secondary" id="test-video">Test Video</button>
+                </div>
+            </form>
+            <div id="save-status" class="status-msg"></div>
+        </section>
+
+        <section id="status" class="tab-content">
+            <h2>System Status</h2>
+            <div id="status-content">
+                <div class="status-item"><span class="label">Loading...</span></div>
+            </div>
+            <button class="btn btn-secondary" id="refresh-status">Refresh</button>
+        </section>
+
+        <section id="logs" class="tab-content">
+            <h2>Logs</h2>
+            <div id="log-container">
+                <pre id="log-content">Loading logs...</pre>
+            </div>
+            <button class="btn btn-secondary" id="refresh-logs">Refresh</button>
+        </section>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

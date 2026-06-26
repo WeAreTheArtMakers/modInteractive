@@ -1,8 +1,8 @@
 [Unit]
-Description=modInteractive Kiosk Application
+Description=modInteractive Motion Triggered Video Display
 Documentation=https://github.com/WeAreTheArtMakers/modInteractive
-After=network.target multi-user.target
-Wants=display-manager.service
+After=graphical.target
+Wants=graphical.target
 
 [Service]
 Type=simple
@@ -12,19 +12,11 @@ Restart=always
 RestartSec=5
 User=pi
 Group=pi
-
-# Environment
 Environment=PYTHONUNBUFFERED=1
 Environment=DISPLAY=:0
 Environment=XDG_RUNTIME_DIR=/run/user/1000
-
-# Security
-NoNewPrivileges=true
-PrivateTmp=true
-
-# Logging
 StandardOutput=journal
 StandardError=journal
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=graphical.target
