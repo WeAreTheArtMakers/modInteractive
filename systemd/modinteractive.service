@@ -1,29 +1,45 @@
 [Unit]
-Description=modInteractive - AI-Powered Kiosk System
-After=network.target multi-user.target
-Wants=network.target
+Description=modInteractive - AI Kiosk System
+After=network.target local-fs.target graphical.target
+Wants=graphical.target
 
 [Service]
 Type=simple
 User=pi
 Group=pi
 WorkingDirectory=/opt/modInteractive
+
+# Environment for Pi5 Qt/Display
 Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+Environment=QT_QPA_PLATFORM=xcb
 Environment=XDG_RUNTIME_DIR=/run/user/1000
-Environment=PATH=/opt/modInteractive/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-Environment=PYTHONUNBUFFERED=1
-ExecStart=/opt/modInteractive/venv/bin/python /opt/modInteractive/main.py
+Environment=PATH=/opt/modInteractive/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=HOME=/home/pi
+
+# Python path
+ExecStart=/opt/modInteractive/.venv/bin/python /opt/modInteractive/main.py
+
+# Restart behavior
 Restart=always
 RestartSec=5
-StartLimitIntervalSec=60
-StartLimitBurst=3
+
+# Watchdog (10 second freeze detection)
 WatchdogSec=10
+
+# Timeouts
 TimeoutStartSec=30
-TimeoutStopSec=15
-KillMode=mixed
-KillSignal=SIGTERM
+TimeoutStopSec=10
+
+# Security
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/opt/modInteractive/logs /opt/modInteractive/videos /opt/modInteractive/config.json
+
+# Logging
 StandardOutput=journal
 StandardError=journal
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=graphical.target

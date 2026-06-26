@@ -2,6 +2,11 @@
 
 Entry point for the modInteractive kiosk application.
 Raspberry Pi 5 optimized with AI-based person detection and video playback.
+
+Environment setup for Pi5:
+- QT_QPA_PLATFORM=wayland (PiOS Bookworm default)
+- DISPLAY=:0 (X11 fallback)
+- Font fallback for Pi5 (DejaVu Sans)
 """
 
 from __future__ import annotations
@@ -16,6 +21,22 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# ── Pi5 Environment Setup ──
+# Set Qt platform for Pi5 (Wayland preferred, X11 fallback)
+if "QT_QPA_PLATFORM" not in os.environ:
+    if os.path.exists("/usr/lib/aarch64-linux-gnu/qt5/plugins/platforms/libqwayland.so"):
+        os.environ["QT_QPA_PLATFORM"] = "wayland"
+    else:
+        os.environ["QT_QPA_PLATFORM"] = "xcb"
+        os.environ.setdefault("DISPLAY", ":0")
+        os.environ.setdefault("XAUTHORITY", os.path.expanduser("~/.Xauthority"))
+
+# Set XDG_RUNTIME_DIR for Wayland
+if "XDG_RUNTIME_DIR" not in os.environ:
+    runtime_dir = f"/run/user/{os.getuid()}" if os.name == "posix" else "/tmp"
+    if os.path.exists(runtime_dir):
+        os.environ["XDG_RUNTIME_DIR"] = runtime_dir
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -25,6 +46,10 @@ logging.basicConfig(
         logging.FileHandler(Path("logs") / "modinteractive.log"),
     ],
 )
+
+# Reduce OpenCV and Ultralytics logging noise
+logging.getLogger("ultralytics").setLevel(logging.WARNING)
+logging.getLogger("cv2").setLevel(logging.WARNING)
 
 logger = logging.getLogger("modInteractive")
 
@@ -44,18 +69,17 @@ async def main() -> None:
     """Main entry point for modInteractive."""
     logger.info("=" * 60)
     logger.info("modInteractive v2.0.0 - AI Kiosk System")
+    logger.info(f"Qt Platform: {os.environ.get('QT_QPA_PLATFORM', 'default')}")
+    logger.info(f"Display: {os.environ.get('DISPLAY', 'none')}")
     logger.info("=" * 60)
 
     app = None
     try:
-        # Import and create application
         from app import Application
         app = Application(config_path="config.json")
 
-        # Start the application
         await app.start()
 
-        # Keep running until shutdown
         while True:
             await asyncio.sleep(1)
 
@@ -73,16 +97,13 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    # Register signal handlers
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
 
-    # Create necessary directories
     os.makedirs("logs", exist_ok=True)
     os.makedirs("videos", exist_ok=True)
     os.makedirs("models", exist_ok=True)
 
-    # Run the async event loop
     try:
         asyncio.run(main())
     except KeyboardInterrupt:

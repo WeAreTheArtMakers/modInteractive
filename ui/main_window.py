@@ -87,7 +87,7 @@ QMainWindow {
 QWidget {
     background-color: #1E1E2E;
     color: #FFFFFF;
-    font-family: "Segoe UI", "SF Pro Display", -apple-system, sans-serif;
+    font-family: "Segoe UI", "SF Pro Display", "DejaVu Sans", "Noto Sans", -apple-system, sans-serif;
     font-size: 13px;
 }
 
@@ -381,7 +381,7 @@ QMainWindow {
 QWidget {
     background-color: #F5F5F5;
     color: #2C3E50;
-    font-family: "Segoe UI", "SF Pro Display", -apple-system, sans-serif;
+    font-family: "Segoe UI", "SF Pro Display", "DejaVu Sans", "Noto Sans", -apple-system, sans-serif;
     font-size: 13px;
 }
 

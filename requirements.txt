@@ -1,5 +1,13 @@
-PySide6>=6.5.0
+# Core
+PySide6>=6.4.0,<6.6.0
 opencv-python-headless>=4.8.0
 numpy>=1.24.0
+
+# AI Detection
 ultralytics>=8.0.0
+
+# System
 psutil>=5.9.0
+
+# Pi5 Camera Module (optional - for Pi Camera Module, not USB webcam)
+# picamera2>=0.3.0
