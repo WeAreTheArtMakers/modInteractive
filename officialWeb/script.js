@@ -1,5 +1,18 @@
 // ── modInteractive Landing Page Script ──
 
+// Video mute toggle
+function toggleMute() {
+    const video = document.getElementById('heroVideo');
+    const btn = document.getElementById('muteToggle');
+    if (video.muted) {
+        video.muted = false;
+        btn.textContent = '🔊';
+    } else {
+        video.muted = true;
+        btn.textContent = '🔇';
+    }
+}
+
 // Mobile menu toggle
 function toggleMenu() {
     const nav = document.querySelector('.nav-links');

@@ -71,6 +71,13 @@
             </div>
         </div>
         <div class="hero-visual">
+            <div class="video-circle">
+                <video id="heroVideo" class="hero-video" autoplay muted loop playsinline preload="auto">
+                    <source src="selamlama.mp4" type="video/mp4">
+                </video>
+                <div class="video-overlay"></div>
+                <button class="video-mute-toggle" id="muteToggle" onclick="toggleMute()" aria-label="Toggle sound">🔇</button>
+            </div>
             <div class="floating-card card-1">
                 <span class="card-icon">📷</span>
                 <span>Camera<br>Detection</span>
@@ -83,7 +90,6 @@
                 <span class="card-icon">🎬</span>
                 <span>Video<br>Playback</span>
             </div>
-            <div class="hero-circle"></div>
         </div>
     </section>
 
