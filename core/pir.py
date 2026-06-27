@@ -51,7 +51,6 @@ class PIRSensor:
             self._device = DigitalInputDevice(
                 self.gpio_pin,
                 pull_up=self.pull_up,
-                active_state=self.active_high,
                 bounce_time=bounce_time,
             )
 
@@ -78,7 +77,8 @@ class PIRSensor:
             return False
 
         try:
-            current_state = bool(getattr(self._device, "is_active"))
+            raw_state = bool(getattr(self._device, "is_active"))
+            current_state = raw_state if self.active_high else not raw_state
         except Exception:
             logger.exception("Could not read PIR state")
             return False
@@ -96,7 +96,8 @@ class PIRSensor:
             return False
 
         try:
-            return bool(getattr(self._device, "is_active"))
+            raw_state = bool(getattr(self._device, "is_active"))
+            return raw_state if self.active_high else not raw_state
         except Exception:
             logger.exception("Could not read current PIR state")
             return False

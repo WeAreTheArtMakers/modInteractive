@@ -7,6 +7,8 @@ document.addEventListener("DOMContentLoaded", () => {
     loadConfig();
     loadStatus();
     loadLogs();
+
+    window.setInterval(loadStatus, 8000);
 });
 
 function bindTabs() {
@@ -14,13 +16,8 @@ function bindTabs() {
         tab.addEventListener("click", () => {
             const targetId = tab.dataset.tab;
 
-            document.querySelectorAll(".tab").forEach((item) => {
-                item.classList.remove("active");
-            });
-
-            document.querySelectorAll(".tab-content").forEach((content) => {
-                content.classList.remove("active");
-            });
+            document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
+            document.querySelectorAll(".tab-content").forEach((content) => content.classList.remove("active"));
 
             tab.classList.add("active");
 
@@ -57,6 +54,7 @@ function bindButtons() {
     const refreshStatus = document.getElementById("refresh-status");
     const refreshLogs = document.getElementById("refresh-logs");
     const testVideoButton = document.getElementById("test-video");
+    const reloadConfigButton = document.getElementById("reload-config");
 
     if (refreshStatus) {
         refreshStatus.addEventListener("click", loadStatus);
@@ -68,6 +66,13 @@ function bindButtons() {
 
     if (testVideoButton) {
         testVideoButton.addEventListener("click", testVideo);
+    }
+
+    if (reloadConfigButton) {
+        reloadConfigButton.addEventListener("click", async () => {
+            await loadConfig();
+            await loadStatus();
+        });
     }
 }
 
@@ -96,7 +101,7 @@ function showStatus(message, type = "info") {
 
     window.setTimeout(() => {
         element.className = "status-msg";
-    }, 5000);
+    }, 6000);
 }
 
 async function apiFetch(url, options = {}) {
@@ -125,7 +130,7 @@ async function loadConfig() {
     try {
         const config = await apiFetch("/api/config");
 
-        setValue("trigger-source", getNested(config, "trigger.source", "camera"));
+        setValue("trigger-source", getNested(config, "trigger.source", "pir"));
 
         setValue("camera-index", getNested(config, "camera.index", 0));
         setValue("camera-width", getNested(config, "camera.width", 640));
@@ -151,9 +156,10 @@ async function loadConfig() {
         setValue("video-volume", getNested(config, "video.volume", 90));
         setChecked("video-fullscreen", getNested(config, "video.fullscreen", true));
 
-        showStatus("Configuration loaded", "success");
+        updateHero(config);
+        showStatus("Ayarlar yüklendi", "success");
     } catch (error) {
-        showStatus(`Failed to load config: ${error.message}`, "error");
+        showStatus(`Ayarlar yüklenemedi: ${error.message}`, "error");
     }
 }
 
@@ -165,7 +171,7 @@ async function saveConfig() {
             version: "1.1.0",
         },
         trigger: {
-            source: readSelect("trigger-source", "camera", ["camera", "pir"]),
+            source: readSelect("trigger-source", "pir", ["camera", "pir"]),
         },
         camera: {
             index: readCameraIndex("camera-index", 0),
@@ -214,13 +220,14 @@ async function saveConfig() {
         });
 
         if (data.status === "ok") {
-            showStatus("Configuration saved successfully. Restart service to apply trigger source changes.", "success");
+            updateHero(config);
+            showStatus("Ayarlar kaydedildi. Değişikliklerin tamamı için servisi restart et.", "success");
             await loadStatus();
         } else {
-            showStatus(data.error || "Configuration save failed", "error");
+            showStatus(data.error || "Ayar kaydetme başarısız", "error");
         }
     } catch (error) {
-        showStatus(`Failed to save: ${error.message}`, "error");
+        showStatus(`Kaydedilemedi: ${error.message}`, "error");
     }
 }
 
@@ -231,50 +238,51 @@ async function loadStatus() {
         return;
     }
 
-    container.innerHTML = createStatusItem("Loading", "Please wait", false);
-
     try {
         const status = await apiFetch("/api/status");
-
-        const source = status.trigger_source || "camera";
+        const source = status.trigger_source || "pir";
         const items = [
             {
-                label: "Trigger Source",
-                value: source,
+                label: "Trigger",
+                value: source === "pir" ? "PIR GPIO" : "Camera",
                 fail: false,
+            },
+            {
+                label: "PIR",
+                value: status.pir_available
+                    ? `GPIO ${status.pir_gpio_pin} • ${formatPirState(status.pir_state)}`
+                    : source === "pir"
+                        ? (status.pir_error || "Hazır değil")
+                        : "Kullanılmıyor",
+                fail: source === "pir" && !status.pir_available,
+            },
+            {
+                label: "Video",
+                value: status.video_exists
+                    ? `Hazır • ${status.video_size_mb || "?"} MB`
+                    : "Bulunamadı",
+                fail: !status.video_exists,
+            },
+            {
+                label: "mpv",
+                value: status.mpv_available ? "Hazır" : "Eksik",
+                fail: !status.mpv_available,
+            },
+            {
+                label: "Camera",
+                value: source === "camera"
+                    ? (status.camera_available ? "Hazır" : "Bulunamadı")
+                    : "Kullanılmıyor",
+                fail: source === "camera" && !status.camera_available,
             },
             {
                 label: "OpenCV",
                 value: status.opencv_available
-                    ? `Available (${status.opencv_version || "unknown"})`
+                    ? `Hazır ${status.opencv_version || ""}`
                     : source === "camera"
-                        ? "Not available"
-                        : "Not required in PIR mode",
+                        ? "Eksik"
+                        : "PIR modunda gerekmez",
                 fail: source === "camera" && !status.opencv_available,
-            },
-            {
-                label: "Camera",
-                value: status.camera_available ? "Available" : source === "camera" ? "Not available" : "Not used",
-                fail: source === "camera" && !status.camera_available,
-            },
-            {
-                label: "Camera Resolution",
-                value: status.camera_resolution || "N/A",
-                fail: false,
-            },
-            {
-                label: "PIR Sensor",
-                value: status.pir_available
-                    ? `Available on BCM GPIO ${status.pir_gpio_pin}, state=${status.pir_state}`
-                    : source === "pir"
-                        ? (status.pir_error || "Not available")
-                        : "Not used",
-                fail: source === "pir" && !status.pir_available,
-            },
-            {
-                label: "Video File",
-                value: status.video_exists ? "Found" : "Not found",
-                fail: !status.video_exists,
             },
             {
                 label: "Video Path",
@@ -282,22 +290,15 @@ async function loadStatus() {
                 fail: false,
             },
             {
-                label: "mpv Player",
-                value: status.mpv_available ? `Available (${status.mpv_path || "mpv"})` : "Not available",
-                fail: !status.mpv_available,
-            },
-            {
-                label: "Config Path",
+                label: "Config",
                 value: status.config_path || "N/A",
                 fail: false,
             },
         ];
 
-        container.innerHTML = items
-            .map((item) => createStatusItem(item.label, item.value, item.fail))
-            .join("");
+        container.innerHTML = items.map((item) => createStatusItem(item.label, item.value, item.fail)).join("");
     } catch (error) {
-        container.innerHTML = createStatusItem("Error", error.message, true);
+        container.innerHTML = createStatusItem("Hata", error.message, true);
     }
 }
 
@@ -310,20 +311,16 @@ async function loadLogs() {
     }
 
     try {
-        const data = await apiFetch("/api/logs?limit=150");
+        const data = await apiFetch("/api/logs?limit=180");
         const logs = Array.isArray(data.logs) ? data.logs : [];
 
-        if (logs.length > 0) {
-            logContent.textContent = logs.join("\n");
-        } else {
-            logContent.textContent = "No log entries found.";
-        }
+        logContent.textContent = logs.length > 0 ? logs.join("\n") : "Log bulunamadı.";
 
         if (logContainer) {
             logContainer.scrollTop = logContainer.scrollHeight;
         }
     } catch (error) {
-        logContent.textContent = `Error loading logs: ${error.message}`;
+        logContent.textContent = `Log okunamadı: ${error.message}`;
     }
 }
 
@@ -335,7 +332,7 @@ async function testVideo() {
     }
 
     const originalText = button.textContent;
-    button.textContent = "Testing...";
+    button.textContent = "Test ediliyor...";
     button.disabled = true;
 
     try {
@@ -349,9 +346,9 @@ async function testVideo() {
             }),
         });
 
-        showStatus(data.message || "Video playback started", "success");
+        showStatus(data.message || "Video başlatıldı", "success");
     } catch (error) {
-        showStatus(`Test failed: ${error.message}`, "error");
+        showStatus(`Video testi başarısız: ${error.message}`, "error");
     } finally {
         window.setTimeout(() => {
             button.textContent = originalText || "Test Video";
@@ -361,21 +358,54 @@ async function testVideo() {
 }
 
 function createStatusItem(label, value, fail = false) {
-    const safeLabel = escapeHtml(String(label));
-    const safeValue = escapeHtml(String(value));
-    const className = fail ? "status-item fail" : "status-item";
+    const className = fail ? "status-card fail" : "status-card ok";
 
-    return `<div class="${className}"><span class="label">${safeLabel}</span><span class="value">${safeValue}</span></div>`;
+    return `
+        <div class="${className}">
+            <span class="label">${escapeHtml(String(label))}</span>
+            <span class="value">${escapeHtml(String(value))}</span>
+        </div>
+    `;
+}
+
+function updateHero(config) {
+    setText("hero-source", String(getNested(config, "trigger.source", "pir")).toUpperCase());
+    setText("hero-video", getNested(config, "video.path", "videos/selamlama.mp4"));
+}
+
+function formatPirState(value) {
+    if (value === true) {
+        return "HIGH";
+    }
+
+    if (value === false) {
+        return "LOW";
+    }
+
+    if (value === "managed_by_application") {
+        return "Uygulama yönetiyor";
+    }
+
+    if (value === null || typeof value === "undefined") {
+        return "Bilinmiyor";
+    }
+
+    return String(value);
 }
 
 function getNested(object, path, fallback) {
-    return path.split(".").reduce((value, key) => {
-        if (value && Object.prototype.hasOwnProperty.call(value, key)) {
-            return value[key];
-        }
+    const parts = path.split(".");
+    let value = object;
 
-        return fallback;
-    }, object);
+    for (const key of parts) {
+        if (value && Object.prototype.hasOwnProperty.call(value, key)) {
+            value = value[key];
+        } else {
+            return fallback;
+        }
+    }
+
+    return value;
 }
 
 function setValue(id, value) {
@@ -443,6 +473,10 @@ function readChecked(id, fallback) {
     return Boolean(element.checked);
 }
 
+function normalizeNumeric(value) {
+    return String(value || "").trim().replace(",", ".");
+}
+
 function readInt(id, fallback, minimum, maximum) {
     const element = document.getElementById(id);
 
@@ -450,7 +484,7 @@ function readInt(id, fallback, minimum, maximum) {
         return fallback;
     }
 
-    let value = Number.parseInt(element.value, 10);
+    let value = Number.parseInt(normalizeNumeric(element.value), 10);
 
     if (Number.isNaN(value)) {
         value = fallback;
@@ -474,7 +508,7 @@ function readFloat(id, fallback, minimum, maximum) {
         return fallback;
     }
 
-    let value = Number.parseFloat(element.value);
+    let value = Number.parseFloat(normalizeNumeric(element.value));
 
     if (Number.isNaN(value)) {
         value = fallback;
@@ -493,9 +527,9 @@ function readFloat(id, fallback, minimum, maximum) {
 
 function escapeHtml(value) {
     return value
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }

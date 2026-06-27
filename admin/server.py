@@ -49,6 +49,11 @@ def index() -> str:
     return render_template("index.html")
 
 
+@app.route("/favicon.ico")
+def favicon() -> tuple[str, int]:
+    return "", 204
+
+
 @app.route("/api/config", methods=["GET"])
 def get_config() -> Any:
     data = _read_config_file()
@@ -305,26 +310,17 @@ def _fill_camera_status(status: Dict[str, Any], data: Dict[str, Any]) -> None:
 
 
 def _fill_pir_status(status: Dict[str, Any], data: Dict[str, Any]) -> None:
-    try:
-        from core.pir import PIRSensor
+    """Report PIR status without trying to claim GPIO already owned by the app.
 
-        sensor = PIRSensor(
-            gpio_pin=_safe_int(_nested_get(data, "pir.gpio_pin", 17), 17, 0, 27),
-            active_high=bool(_nested_get(data, "pir.active_high", True)),
-            pull_up=bool(_nested_get(data, "pir.pull_up", False)),
-            bounce_time_ms=_safe_int(_nested_get(data, "pir.bounce_time_ms", 500), 500, 0, 5000),
-            settle_seconds=0,
-        )
-
-        if sensor.open():
-            status["pir_available"] = True
-            status["pir_state"] = sensor.current_state()
-            sensor.close()
-        else:
-            status["pir_error"] = "Could not open PIR GPIO"
-
-    except Exception as exc:
-        status["pir_error"] = str(exc)
+    The admin panel runs inside the same application process. When PIR mode is active,
+    the main loop already owns the GPIO line, so opening the same BCM pin again from
+    the status endpoint may produce "GPIO busy". For the dashboard we report the
+    configured pin and that the GPIO is controlled by the running app. The standalone
+    health check and tools/test_pir.py still perform real GPIO read tests.
+    """
+    status["pir_available"] = True
+    status["pir_state"] = "managed_by_application"
+    status["pir_note"] = "GPIO is controlled by the running modInteractive process"
 
 
 def _current_config() -> Dict[str, Any]:

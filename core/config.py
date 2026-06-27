@@ -108,8 +108,8 @@ class Config:
             return
 
         self._data = self._deep_merge(self._default_data(), file_data)
-        self._validate_and_normalize()
         self._loaded = True
+        self._validate_and_normalize()
         logger.info("Configuration loaded from: %s", self._path)
 
     def reload(self) -> None:

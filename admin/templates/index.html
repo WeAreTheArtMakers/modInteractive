@@ -2,198 +2,266 @@
 <html lang="tr">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#0f172a">
     <title>modInteractive Admin</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230f172a'/%3E%3Cpath d='M16 42V22l16 10 16-10v20' fill='none' stroke='%2322c55e' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20260627">
 </head>
 <body>
-    <main class="container">
-        <header class="hero">
-            <div>
-                <p class="eyebrow">modInteractive</p>
-                <h1>Motion Triggered HDMI Video Display</h1>
-                <p>Camera veya PIR sensör ile video tetikleme ayarları.</p>
-            </div>
-        </header>
+    <div class="shell">
+        <aside class="sidebar">
+            <a class="brand" href="/">
+                <span class="brand-mark">m</span>
+                <span>
+                    <strong>modInteractive</strong>
+                    <small>Pi5 Kiosk Control</small>
+                </span>
+            </a>
 
-        <nav class="tabs" aria-label="Admin tabs">
-            <button class="tab active" type="button" data-tab="config">Configuration</button>
-            <button class="tab" type="button" data-tab="status">Status</button>
-            <button class="tab" type="button" data-tab="logs">Logs</button>
-        </nav>
+            <nav class="nav-tabs" aria-label="Admin tabs">
+                <button class="tab active" type="button" data-tab="config">
+                    <span>⚙️</span> Ayarlar
+                </button>
+                <button class="tab" type="button" data-tab="status">
+                    <span>📡</span> Durum
+                </button>
+                <button class="tab" type="button" data-tab="logs">
+                    <span>🧾</span> Loglar
+                </button>
+            </nav>
 
-        <section id="config" class="tab-content active">
-            <div class="section-header">
-                <h2>Configuration</h2>
-                <p>Kamera, PIR sensör ve video oynatma ayarları.</p>
-            </div>
-
-            <form id="config-form">
-                <fieldset>
-                    <legend>Trigger Source</legend>
-
-                    <label for="trigger-source">
-                        Source
-                        <select name="trigger.source" id="trigger-source">
-                            <option value="camera">Camera motion detection</option>
-                            <option value="pir">PIR GPIO sensor</option>
-                        </select>
-                    </label>
-                </fieldset>
-
-                <fieldset>
-                    <legend>Camera</legend>
-
-                    <label for="camera-index">
-                        Camera Device Index
-                        <input type="text" name="camera.index" id="camera-index" placeholder="0">
-                    </label>
-
-                    <div class="grid-3">
-                        <label for="camera-width">
-                            Width
-                            <input type="number" name="camera.width" id="camera-width" min="160" max="3840" step="1" inputmode="numeric">
-                        </label>
-
-                        <label for="camera-height">
-                            Height
-                            <input type="number" name="camera.height" id="camera-height" min="120" max="2160" step="1" inputmode="numeric">
-                        </label>
-
-                        <label for="camera-fps">
-                            FPS
-                            <input type="number" name="camera.fps" id="camera-fps" min="1" max="60" step="1" inputmode="numeric">
-                        </label>
-                    </div>
-                </fieldset>
-
-                <fieldset>
-                    <legend>PIR Sensor</legend>
-
-                    <div class="grid-3">
-                        <label for="pir-gpio-pin">
-                            BCM GPIO Pin
-                            <input type="number" name="pir.gpio_pin" id="pir-gpio-pin" min="0" max="27" step="1" inputmode="numeric">
-                        </label>
-
-                        <label for="pir-bounce-time">
-                            Bounce Time ms
-                            <input type="number" name="pir.bounce_time_ms" id="pir-bounce-time" min="0" max="5000" step="50" inputmode="numeric">
-                        </label>
-
-                        <label for="pir-settle-seconds">
-                            Warmup Seconds
-                            <input type="number" name="pir.settle_seconds" id="pir-settle-seconds" min="0" max="120" step="1" inputmode="numeric">
-                        </label>
-                    </div>
-
-                    <div class="grid-3">
-                        <label for="pir-poll-interval">
-                            Poll Interval Seconds
-                            <input type="number" name="pir.poll_interval" id="pir-poll-interval" min="0.01" max="5" step="0.01" inputmode="decimal">
-                        </label>
-
-                        <label class="checkbox-label" for="pir-active-high">
-                            <input type="checkbox" name="pir.active_high" id="pir-active-high">
-                            <span>Active high</span>
-                        </label>
-
-                        <label class="checkbox-label" for="pir-pull-up">
-                            <input type="checkbox" name="pir.pull_up" id="pir-pull-up">
-                            <span>Internal pull-up</span>
-                        </label>
-                    </div>
-                </fieldset>
-
-                <fieldset>
-                    <legend>Detection</legend>
-
-                    <label for="motion-sensitivity">
-                        Motion Sensitivity
-                        <span id="motion-sensitivity-value">-</span>
-                        <input type="range" name="detection.motion_sensitivity" id="motion-sensitivity" min="1" max="100000" step="1">
-                    </label>
-
-                    <div class="grid-3">
-                        <label for="min-motion-area">
-                            Minimum Motion Area
-                            <input type="number" name="detection.min_motion_area" id="min-motion-area" min="1" max="100000" step="1" inputmode="numeric">
-                        </label>
-
-                        <label for="cooldown-seconds">
-                            Cooldown Seconds
-                            <input type="number" name="detection.cooldown_seconds" id="cooldown-seconds" min="0" max="600" step="1" inputmode="numeric">
-                        </label>
-
-                        <label for="frame-skip">
-                            Frame Skip
-                            <input type="number" name="detection.frame_skip" id="frame-skip" min="1" max="30" step="1" inputmode="numeric">
-                        </label>
-                    </div>
-                </fieldset>
-
-                <fieldset>
-                    <legend>Video</legend>
-
-                    <label for="video-path">
-                        Video Path
-                        <input type="text" name="video.path" id="video-path" placeholder="videos/selamlama.mp4">
-                    </label>
-
-                    <label for="video-volume">
-                        Volume
-                        <input type="number" name="video.volume" id="video-volume" min="0" max="100" step="1" inputmode="numeric">
-                    </label>
-
-                    <label class="checkbox-label" for="video-fullscreen">
-                        <input type="checkbox" name="video.fullscreen" id="video-fullscreen">
-                        <span>Fullscreen playback</span>
-                    </label>
-                </fieldset>
-
-                <div class="actions">
-                    <button type="submit" class="btn btn-primary">Save Configuration</button>
-                    <button type="button" class="btn btn-secondary" id="test-video">Test Video</button>
-                </div>
-
-                <div id="save-status" class="status-msg" role="status" aria-live="polite"></div>
-            </form>
-        </section>
-
-        <section id="status" class="tab-content">
-            <div class="section-header">
-                <h2>System Status</h2>
-                <p>Kamera/PIR, video player, GPIO ve sistem durumu.</p>
-            </div>
-
-            <div id="status-content" class="status-grid">
-                <div class="status-item">
-                    <span class="label">Loading...</span>
-                    <span class="value">Please wait</span>
+            <div class="sidebar-card">
+                <span class="pulse"></span>
+                <div>
+                    <strong>PIR-first mode</strong>
+                    <small>GPIO hareket algılayınca video başlar.</small>
                 </div>
             </div>
+        </aside>
 
-            <div class="actions">
-                <button type="button" class="btn btn-secondary" id="refresh-status">Refresh Status</button>
-            </div>
-        </section>
+        <main class="main">
+            <header class="hero">
+                <div>
+                    <p class="eyebrow">Cafeler • Mağazalar • Kiosk ekranlar</p>
+                    <h1>Motion Triggered HDMI Video Display</h1>
+                    <p class="hero-text">PIR sensör veya kamera ile Raspberry Pi 5 üzerinde tam ekran video tetikleme paneli.</p>
+                </div>
+                <div class="hero-status">
+                    <span id="hero-source">PIR</span>
+                    <small id="hero-video">videos/selamlama.mp4</small>
+                </div>
+            </header>
 
-        <section id="logs" class="tab-content">
-            <div class="section-header">
-                <h2>Logs</h2>
-                <p>Recent application logs.</p>
-            </div>
+            <section id="config" class="tab-content active">
+                <div class="section-title">
+                    <div>
+                        <h2>Ayarlar</h2>
+                        <p>PIR, kamera, video ve bekleme davranışlarını buradan yönet.</p>
+                    </div>
+                    <button type="button" class="btn ghost" id="reload-config">Yenile</button>
+                </div>
 
-            <div id="log-container">
-                <pre id="log-content">Loading logs...</pre>
-            </div>
+                <form id="config-form" class="form-grid">
+                    <article class="card wide">
+                        <div class="card-head">
+                            <span class="icon">🎛️</span>
+                            <div>
+                                <h3>Tetik Kaynağı</h3>
+                                <p>Varsayılan kullanım PIR sensör, kamera opsiyonel.</p>
+                            </div>
+                        </div>
 
-            <div class="actions">
-                <button type="button" class="btn btn-secondary" id="refresh-logs">Refresh Logs</button>
-            </div>
-        </section>
-    </main>
+                        <label class="field">
+                            <span>Source</span>
+                            <select name="trigger.source" id="trigger-source">
+                                <option value="pir">PIR GPIO sensor</option>
+                                <option value="camera">Camera motion detection</option>
+                            </select>
+                        </label>
+                    </article>
 
-    <script src="/static/app.js"></script>
+                    <article class="card">
+                        <div class="card-head">
+                            <span class="icon">📡</span>
+                            <div>
+                                <h3>PIR Sensor</h3>
+                                <p>GPIO pin ve sinyal davranışı.</p>
+                            </div>
+                        </div>
+
+                        <div class="fields two">
+                            <label class="field">
+                                <span>BCM GPIO Pin</span>
+                                <input type="number" name="pir.gpio_pin" id="pir-gpio-pin" min="0" max="27" step="1" inputmode="numeric">
+                            </label>
+
+                            <label class="field">
+                                <span>Bounce Time ms</span>
+                                <input type="number" name="pir.bounce_time_ms" id="pir-bounce-time" min="0" max="5000" step="50" inputmode="numeric">
+                            </label>
+
+                            <label class="field">
+                                <span>Warmup Seconds</span>
+                                <input type="number" name="pir.settle_seconds" id="pir-settle-seconds" min="0" max="120" step="1" inputmode="numeric">
+                            </label>
+
+                            <label class="field">
+                                <span>Poll Interval Seconds</span>
+                                <input type="number" name="pir.poll_interval" id="pir-poll-interval" min="0.01" max="5" step="0.01" inputmode="decimal">
+                            </label>
+                        </div>
+
+                        <div class="switch-row">
+                            <label class="switch">
+                                <input type="checkbox" name="pir.active_high" id="pir-active-high">
+                                <span></span>
+                                Active high
+                            </label>
+
+                            <label class="switch">
+                                <input type="checkbox" name="pir.pull_up" id="pir-pull-up">
+                                <span></span>
+                                Internal pull-up
+                            </label>
+                        </div>
+
+                        <div class="hint">
+                            SR602 için genelde Active high açık, Internal pull-up kapalı kalır.
+                        </div>
+                    </article>
+
+                    <article class="card">
+                        <div class="card-head">
+                            <span class="icon">🎬</span>
+                            <div>
+                                <h3>Video</h3>
+                                <p>HDMI ekrana basılacak dosya.</p>
+                            </div>
+                        </div>
+
+                        <label class="field">
+                            <span>Video Path</span>
+                            <input type="text" name="video.path" id="video-path" placeholder="videos/selamlama.mp4" autocomplete="off">
+                        </label>
+
+                        <div class="fields two">
+                            <label class="field">
+                                <span>Volume</span>
+                                <input type="number" name="video.volume" id="video-volume" min="0" max="100" step="1" inputmode="numeric">
+                            </label>
+
+                            <label class="switch video-switch">
+                                <input type="checkbox" name="video.fullscreen" id="video-fullscreen">
+                                <span></span>
+                                Fullscreen playback
+                            </label>
+                        </div>
+
+                        <button type="button" class="btn secondary full" id="test-video">Test Video</button>
+                    </article>
+
+                    <article class="card">
+                        <div class="card-head">
+                            <span class="icon">🧠</span>
+                            <div>
+                                <h3>Algılama</h3>
+                                <p>PIR için cooldown, kamera için hareket eşiği.</p>
+                            </div>
+                        </div>
+
+                        <label class="field range-field">
+                            <span>Motion Sensitivity <b id="motion-sensitivity-value">-</b></span>
+                            <input type="range" name="detection.motion_sensitivity" id="motion-sensitivity" min="1" max="100000" step="1">
+                        </label>
+
+                        <div class="fields two">
+                            <label class="field">
+                                <span>Minimum Motion Area</span>
+                                <input type="number" name="detection.min_motion_area" id="min-motion-area" min="1" max="100000" step="1" inputmode="numeric">
+                            </label>
+
+                            <label class="field">
+                                <span>Cooldown Seconds</span>
+                                <input type="number" name="detection.cooldown_seconds" id="cooldown-seconds" min="0" max="600" step="1" inputmode="numeric">
+                            </label>
+
+                            <label class="field">
+                                <span>Frame Skip</span>
+                                <input type="number" name="detection.frame_skip" id="frame-skip" min="1" max="30" step="1" inputmode="numeric">
+                            </label>
+                        </div>
+                    </article>
+
+                    <article class="card">
+                        <div class="card-head">
+                            <span class="icon">📷</span>
+                            <div>
+                                <h3>Kamera</h3>
+                                <p>Kamera moduna geçersen kullanılır.</p>
+                            </div>
+                        </div>
+
+                        <label class="field">
+                            <span>Camera Device Index</span>
+                            <input type="text" name="camera.index" id="camera-index" placeholder="0" autocomplete="off">
+                        </label>
+
+                        <div class="fields three">
+                            <label class="field">
+                                <span>Width</span>
+                                <input type="number" name="camera.width" id="camera-width" min="160" max="3840" step="1" inputmode="numeric">
+                            </label>
+
+                            <label class="field">
+                                <span>Height</span>
+                                <input type="number" name="camera.height" id="camera-height" min="120" max="2160" step="1" inputmode="numeric">
+                            </label>
+
+                            <label class="field">
+                                <span>FPS</span>
+                                <input type="number" name="camera.fps" id="camera-fps" min="1" max="60" step="1" inputmode="numeric">
+                            </label>
+                        </div>
+                    </article>
+
+                    <div class="save-bar">
+                        <div id="save-status" class="status-msg" role="status" aria-live="polite">Hazır</div>
+                        <button type="submit" class="btn primary">Ayarları Kaydet</button>
+                    </div>
+                </form>
+            </section>
+
+            <section id="status" class="tab-content">
+                <div class="section-title">
+                    <div>
+                        <h2>Sistem Durumu</h2>
+                        <p>Kamera/PIR, video player, GPIO ve dosya durumu.</p>
+                    </div>
+                    <button type="button" class="btn ghost" id="refresh-status">Durumu Yenile</button>
+                </div>
+
+                <div id="status-content" class="status-grid">
+                    <div class="status-card loading">Yükleniyor...</div>
+                </div>
+            </section>
+
+            <section id="logs" class="tab-content">
+                <div class="section-title">
+                    <div>
+                        <h2>Loglar</h2>
+                        <p>Son uygulama hareketleri ve hatalar.</p>
+                    </div>
+                    <button type="button" class="btn ghost" id="refresh-logs">Logları Yenile</button>
+                </div>
+
+                <div id="log-container" class="log-panel">
+                    <pre id="log-content">Loading logs...</pre>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}?v=20260627"></script>
 </body>
 </html>

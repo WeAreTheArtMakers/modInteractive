@@ -257,6 +257,11 @@ class Application:
         logger.info("Application running with trigger source: %s", self._trigger_source)
 
         try:
+            self._player.show_standby(str(self._video_path()))
+        except Exception:
+            logger.exception("Standby first frame failed")
+
+        try:
             if self._trigger_source == "pir":
                 await self._run_pir_loop()
             else:
