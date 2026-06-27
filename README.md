@@ -310,7 +310,7 @@ PIR ile Camera arasında geçiş yaptıktan sonra ayarları kaydedip servisi yen
   <img src="docs/images/admin-desktop-logs.png" alt="modInteractive desktop logs screen" width="820">
 </p>
 
-### Müşteri teslim kullanım komutları
+### Kullanım komutları
 
 Uygulamayı cihaz açılışında otomatik başlatmak için:
 
@@ -330,3 +330,11 @@ Ayar değişikliğinden sonra yeniden başlatma:
 
     sudo systemctl restart modinteractive
 <!-- REMOTE_ADMIN_PANEL_END -->
+
+<!-- WATAM_LICENSE_START -->
+## Lisans
+
+WATAM
+<!-- WATAM_LICENSE_END -->
+
+Built with ❤️ by WATAM
