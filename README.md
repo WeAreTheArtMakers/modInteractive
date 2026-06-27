@@ -255,3 +255,78 @@ v4l2-ctl --list-devices
 ## Lisans
 
 MIT License
+
+<!-- REMOTE_ADMIN_PANEL_START -->
+## Uzaktan Admin Panel
+
+modInteractive, Raspberry Pi 5 üzerinde çalışan modern bir web admin paneli içerir. Aynı Wi-Fi veya yerel ağdaki telefon, tablet, laptop veya masaüstü bilgisayardan kontrol edilebilir.
+
+Admin paneli açmak için:
+
+    http://<RASPBERRY_PI_IP>:8080
+
+Örnek:
+
+    http://192.168.0.30:8080
+
+Raspberry Pi IP adresini öğrenmek için:
+
+    hostname -I
+
+### Panelden yapılabilen işlemler
+
+- Tetik kaynağı seçimi: PIR GPIO sensor veya Camera motion detection
+- PIR ayarları: BCM GPIO pin, bounce time, warmup, poll interval, active-high, internal pull-up
+- Video ayarları: video path, volume, fullscreen playback
+- Algılama ayarları: cooldown, motion sensitivity, minimum motion area, frame skip
+- Tarayıcıdan video testi
+- Sistem durumu görüntüleme
+- Uygulama loglarını görüntüleme
+- Telefon, tablet veya bilgisayardan uzaktan kontrol
+
+PIR ile Camera arasında geçiş yaptıktan sonra ayarları kaydedip servisi yeniden başlatmak gerekir:
+
+    sudo systemctl restart modinteractive
+
+### Mobil ve masaüstü ekran görüntüleri
+
+<p align="center">
+  <img src="docs/images/admin-mobile-status.png" alt="modInteractive mobile admin status screen" width="260">
+</p>
+
+<p align="center">
+  <img src="docs/images/admin-desktop-config-overview.png" alt="modInteractive desktop admin configuration overview" width="820">
+</p>
+
+<p align="center">
+  <img src="docs/images/admin-desktop-config-settings.png" alt="modInteractive desktop PIR and video settings" width="820">
+</p>
+
+<p align="center">
+  <img src="docs/images/admin-desktop-status.png" alt="modInteractive desktop system status" width="820">
+</p>
+
+<p align="center">
+  <img src="docs/images/admin-desktop-logs.png" alt="modInteractive desktop logs screen" width="820">
+</p>
+
+### Müşteri teslim kullanım komutları
+
+Uygulamayı cihaz açılışında otomatik başlatmak için:
+
+    sudo systemctl enable modinteractive
+    sudo systemctl restart modinteractive
+    sudo systemctl status modinteractive --no-pager
+
+Canlı log izleme:
+
+    journalctl -u modinteractive -f
+
+Uygulamayı durdurma:
+
+    sudo systemctl stop modinteractive
+
+Ayar değişikliğinden sonra yeniden başlatma:
+
+    sudo systemctl restart modinteractive
+<!-- REMOTE_ADMIN_PANEL_END -->
