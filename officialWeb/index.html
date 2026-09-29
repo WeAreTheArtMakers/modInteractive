@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>modInteractive - AI Kiosk System</title>
-    <meta name="description" content="Raspberry Pi 5 based intelligent kiosk system. AI-powered person detection, video playback, and interactive display.">
+    <title>modInteractive - Interactive Kiosk System</title>
+    <meta name="description" content="Raspberry Pi 5 based interactive kiosk and digital signage system with PIR motion triggering, optional camera detection, fullscreen video playback and remote administration.">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Navigation -->
     <nav class="nav">
         <div class="nav-container">
             <div class="nav-logo">
@@ -19,54 +18,52 @@
             <div class="nav-links">
                 <a href="#features">Features</a>
                 <a href="#specs">Tech Specs</a>
-                <a href="#install">Install</a>
-                <a href="https://github.com/WeAreTheArtMakers/modInteractive" target="_blank" class="nav-cta">GitHub →</a>
+                <a href="#system">System</a>
+                <a href="https://wearetheartmakers.com" target="_blank" rel="noopener" class="nav-cta">WATAM →</a>
             </div>
-            <button class="mobile-menu" onclick="toggleMenu()">
+            <button class="mobile-menu" onclick="toggleMenu()" aria-label="Menu">
                 <span></span><span></span><span></span>
             </button>
         </div>
     </nav>
 
-    <!-- Hero -->
     <section class="hero">
         <div class="hero-bg"></div>
         <div class="hero-content">
-            <div class="hero-badge">v2.0.0 · Production Ready</div>
+            <div class="hero-badge">Raspberry Pi 5 · Interactive Display System</div>
             <h1 class="hero-title">
                 Turn Any Screen Into<br>
-                an <span class="gradient-text">Interactive Kiosk</span>
+                an <span class="gradient-text">Interactive Experience</span>
             </h1>
             <p class="hero-subtitle">
-                Raspberry Pi 5 powered AI kiosk system. Detects people via USB camera,
-                plays welcome videos with smooth fade transitions. Plug-and-play.
+                modInteractive is a private WATAM software system for Raspberry Pi 5. PIR motion detection is the default trigger; optional camera motion detection is built into the software and can be enabled when required.
             </p>
             <div class="hero-actions">
-                <a href="#install" class="btn btn-primary">
+                <a href="#features" class="btn btn-primary">
                     <span class="btn-icon">⚡</span>
-                    Get Started Now
+                    Explore Features
                 </a>
-                <a href="https://github.com/WeAreTheArtMakers/modInteractive" target="_blank" class="btn btn-secondary">
-                    <span class="btn-icon">⟨⟩</span>
-                    Source Code
+                <a href="#system" class="btn btn-secondary">
+                    <span class="btn-icon">◆</span>
+                    System Overview
                 </a>
             </div>
             <div class="hero-stats">
                 <div class="stat">
-                    <span class="stat-value">8</span>
-                    <span class="stat-label">Commits</span>
+                    <span class="stat-value">PIR</span>
+                    <span class="stat-label">Default Trigger</span>
                 </div>
                 <div class="stat">
-                    <span class="stat-value">101</span>
-                    <span class="stat-label">Tests Passed</span>
+                    <span class="stat-value">2</span>
+                    <span class="stat-label">Trigger Modes</span>
                 </div>
                 <div class="stat">
-                    <span class="stat-value">0</span>
-                    <span class="stat-label">Errors</span>
+                    <span class="stat-value">1080p+</span>
+                    <span class="stat-label">HDMI Output</span>
                 </div>
                 <div class="stat">
                     <span class="stat-value">24/7</span>
-                    <span class="stat-label">Uptime</span>
+                    <span class="stat-label">Kiosk Ready</span>
                 </div>
             </div>
         </div>
@@ -79,96 +76,93 @@
                 <button class="video-mute-toggle" id="muteToggle" onclick="toggleMute()" aria-label="Toggle sound">🔇</button>
             </div>
             <div class="floating-card card-1">
-                <span class="card-icon">📷</span>
-                <span>Camera<br>Detection</span>
+                <span class="card-icon">📡</span>
+                <span>PIR<br>Detection</span>
             </div>
             <div class="floating-card card-2">
-                <span class="card-icon">🧠</span>
-                <span>AI<br>YOLOv8</span>
+                <span class="card-icon">📷</span>
+                <span>Optional Camera<br>Detection</span>
             </div>
             <div class="floating-card card-3">
                 <span class="card-icon">🎬</span>
-                <span>Video<br>Playback</span>
+                <span>Fullscreen<br>Playback</span>
             </div>
         </div>
     </section>
 
-    <!-- Use Case -->
     <section class="use-case">
         <div class="container">
             <div class="use-case-flow">
                 <div class="flow-step">
                     <div class="step-number">1</div>
                     <div class="step-icon">🚶</div>
-                    <h3>Person Enters</h3>
-                    <p>Customer walks into the space</p>
+                    <h3>Motion Occurs</h3>
+                    <p>PIR sensor detects movement</p>
                 </div>
                 <div class="flow-arrow">→</div>
                 <div class="flow-step">
                     <div class="step-number">2</div>
                     <div class="step-icon">📡</div>
-                    <h3>AI Detects</h3>
-                    <p>YOLOv8 + motion detection</p>
+                    <h3>Trigger</h3>
+                    <p>System receives the motion event</p>
                 </div>
                 <div class="flow-arrow">→</div>
                 <div class="flow-step">
                     <div class="step-number">3</div>
                     <div class="step-icon">▶️</div>
-                    <h3>Plays Video</h3>
-                    <p>Fade-in welcome message</p>
+                    <h3>Video Plays</h3>
+                    <p>Selected media opens fullscreen</p>
                 </div>
                 <div class="flow-arrow">→</div>
                 <div class="flow-step">
                     <div class="step-number">4</div>
                     <div class="step-icon">⏳</div>
-                    <h3>Cooldown</h3>
-                    <p>8s wait, then back to idle</p>
+                    <h3>Ready Again</h3>
+                    <p>Cooldown ends and motion monitoring resumes</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Features -->
     <section class="features" id="features">
         <div class="container">
-            <h2 class="section-title">Everything You Need</h2>
-            <p class="section-subtitle">Production-grade kiosk system optimized for Raspberry Pi 5</p>
+            <h2 class="section-title">Designed for Interactive Displays</h2>
+            <p class="section-subtitle">A dedicated Raspberry Pi 5 kiosk platform for exhibitions, retail, installations and digital signage</p>
             <div class="features-grid">
                 <div class="feature-card">
-                    <div class="feature-icon">🧠</div>
-                    <h3>AI Detection Engine</h3>
-                    <p>Hybrid YOLOv8n + motion detection with configurable confidence threshold. Person confirmed in under 200ms.</p>
+                    <div class="feature-icon">📡</div>
+                    <h3>PIR Motion Trigger</h3>
+                    <p>GPIO-based motion triggering is the default operating mode, designed for reliable and low-overhead interaction.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📷</div>
+                    <h3>Optional Camera Mode</h3>
+                    <p>Camera/OpenCV motion detection is already integrated in the software and can be enabled without changing the core system.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🎬</div>
-                    <h3>Smart Video Playback</h3>
-                    <p>mpv with hardware acceleration. Fade-in/out transitions. Supports any video format. 1080p @ 30fps.</p>
+                    <h3>Fullscreen Media Playback</h3>
+                    <p>HDMI-connected displays can automatically play configured video content in fullscreen when motion is detected.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">🔄</div>
-                    <h3>Finite State Machine</h3>
-                    <p>Strict 10-state FSM. No race conditions. No double triggers. Event-driven architecture.</p>
+                    <div class="feature-icon">📱</div>
+                    <h3>Remote Admin Panel</h3>
+                    <p>Trigger source, video path, audio level, cooldown and detection settings can be managed from a phone, tablet or computer on the same network.</p>
                 </div>
                 <div class="feature-card">
-                    <div class="feature-icon">📊</div>
-                    <h3>Modern UI Dashboard</h3>
-                    <p>PySide6 touch-friendly interface. Dark/Light theme. Live camera preview. Real-time logs.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🔌</div>
-                    <h3>Plugin System</h3>
-                    <p>Extend with custom detection engines, playback backends, or UI modules. Drop-in Python plugins.</p>
+                    <div class="feature-icon">⚙️</div>
+                    <h3>Automatic Startup</h3>
+                    <p>The system is designed to start automatically with the Raspberry Pi and return to motion monitoring without manual intervention.</p>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">🛡️</div>
-                    <h3>Watchdog & Recovery</h3>
-                    <p>Auto-restart on freeze (10s timeout). Camera auto-reconnect. systemd service with fail2ban.</p>
+                    <h3>Private Software</h3>
+                    <p>The application source code remains private. This public page presents the product and its capabilities without exposing the implementation.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Specs -->
     <section class="specs" id="specs">
         <div class="container">
             <h2 class="section-title">Technical Specifications</h2>
@@ -176,127 +170,114 @@
                 <div class="spec-card">
                     <h3>Hardware</h3>
                     <ul>
-                        <li><strong>Board:</strong> Raspberry Pi 5 (8GB)</li>
-                        <li><strong>Camera:</strong> USB Webcam (any)</li>
-                        <li><strong>Display:</strong> HDMI (1080p+)</li>
-                        <li><strong>Storage:</strong> 32GB+ SD Card</li>
+                        <li><strong>Board:</strong> Raspberry Pi 5</li>
+                        <li><strong>Trigger:</strong> PIR GPIO sensor</li>
+                        <li><strong>Display:</strong> HDMI screen / TV / monitor</li>
+                        <li><strong>Camera:</strong> Optional USB or Pi Camera</li>
                     </ul>
                 </div>
                 <div class="spec-card">
                     <h3>Software</h3>
                     <ul>
-                        <li><strong>OS:</strong> PiOS Bookworm 64-bit</li>
-                        <li><strong>Python:</strong> 3.11+</li>
-                        <li><strong>UI:</strong> PySide6 (Qt6)</li>
-                        <li><strong>AI:</strong> YOLOv8n + OpenCV</li>
+                        <li><strong>OS:</strong> Raspberry Pi OS</li>
+                        <li><strong>Playback:</strong> mpv fullscreen</li>
+                        <li><strong>Admin:</strong> Local web interface</li>
+                        <li><strong>Camera mode:</strong> OpenCV based</li>
                     </ul>
                 </div>
                 <div class="spec-card">
-                    <h3>Performance</h3>
+                    <h3>Operation</h3>
                     <ul>
-                        <li><strong>Startup:</strong> < 15 seconds</li>
-                        <li><strong>Detection:</strong> < 200ms latency</li>
-                        <li><strong>Idle CPU:</strong> < 15%</li>
-                        <li><strong>Video:</strong> 1080p @ 30 FPS</li>
+                        <li><strong>Startup:</strong> Automatic service launch</li>
+                        <li><strong>Default source:</strong> PIR</li>
+                        <li><strong>Alternative source:</strong> Camera</li>
+                        <li><strong>Playback:</strong> Configurable media file</li>
                     </ul>
                 </div>
                 <div class="spec-card">
-                    <h3>Detection</h3>
+                    <h3>Control</h3>
                     <ul>
-                        <li><strong>Mode:</strong> Hybrid (YOLO + Motion)</li>
-                        <li><strong>Confidence:</strong> 55% threshold</li>
-                        <li><strong>Cooldown:</strong> 8 seconds</li>
-                        <li><strong>Frame Skip:</strong> Every 3rd frame</li>
+                        <li><strong>Trigger:</strong> Select PIR or camera</li>
+                        <li><strong>Video:</strong> Path and volume control</li>
+                        <li><strong>Motion:</strong> Cooldown and sensitivity</li>
+                        <li><strong>Status:</strong> System state and logs</li>
                     </ul>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Install -->
-    <section class="install" id="install">
+    <section class="install" id="system">
         <div class="container">
-            <h2 class="section-title">Install in 60 Seconds</h2>
-            <p class="section-subtitle">No manual configuration required. Just plug and play.</p>
+            <h2 class="section-title">System Delivery</h2>
+            <p class="section-subtitle">modInteractive is delivered as a configured private software solution rather than a public source-code package.</p>
             <div class="install-steps">
                 <div class="install-step">
                     <div class="step-header">
                         <span class="step-badge">1</span>
-                        <h3>Clone the Repository</h3>
+                        <h3>Raspberry Pi 5 Platform</h3>
                     </div>
-                    <div class="code-block">
-                        <button class="copy-btn" onclick="copyCode(this)" aria-label="Copy command">📋</button>
-                        <code>git clone https://github.com/WeAreTheArtMakers/modInteractive.git<br>cd modInteractive</code>
-                    </div>
+                    <p class="step-desc">The application runs locally on Raspberry Pi 5 and controls motion-triggered fullscreen content playback.</p>
                 </div>
                 <div class="install-step">
                     <div class="step-header">
                         <span class="step-badge">2</span>
-                        <h3>Connect Hardware</h3>
+                        <h3>PIR by Default</h3>
                     </div>
-                    <p class="step-desc">Plug your USB webcam into the Pi 5. Connect HDMI display. Insert power.</p>
+                    <p class="step-desc">The standard system uses a PIR sensor. Camera hardware is optional; camera detection support remains included in the software.</p>
                 </div>
                 <div class="install-step">
                     <div class="step-header">
                         <span class="step-badge">3</span>
-                        <h3>Run Installer</h3>
+                        <h3>Remote Configuration</h3>
                     </div>
-                    <div class="code-block">
-                        <button class="copy-btn" onclick="copyCode(this)" aria-label="Copy command">📋</button>
-                        <code>sudo ./install.sh</code>
-                    </div>
-                    <p class="step-desc">Installs dependencies, downloads YOLOv8 model, sets up systemd service, and starts the kiosk.</p>
+                    <p class="step-desc">Operational settings can be adjusted from the built-in local admin panel without exposing application source code.</p>
                 </div>
             </div>
             <div class="install-note">
-                <span class="note-icon">💡</span>
-                <p>That's it! Your kiosk is now running. Walk in front of the camera to test the welcome video.</p>
+                <span class="note-icon">◆</span>
+                <p>Source code is not distributed through this public presentation site.</p>
             </div>
         </div>
     </section>
 
-    <!-- CTA -->
     <section class="cta">
         <div class="container">
-            <h2>Ready to Build Your Kiosk?</h2>
-            <p>Open source. MIT licensed. Community driven.</p>
-            <a href="https://github.com/WeAreTheArtMakers/modInteractive" target="_blank" class="btn btn-primary btn-large">
-                <span class="btn-icon">⟨⟩</span>
-                View on GitHub
+            <h2>modInteractive</h2>
+            <p>Private interactive kiosk software developed by WATAM for Raspberry Pi 5 based installations.</p>
+            <a href="https://wearetheartmakers.com" target="_blank" rel="noopener" class="btn btn-primary btn-large">
+                <span class="btn-icon">◆</span>
+                WATAM
             </a>
         </div>
     </section>
 
-    <!-- Footer -->
     <footer class="footer">
         <div class="container">
             <div class="footer-content">
                 <div class="footer-brand">
                     <span class="logo-icon">◆</span>
                     <span class="logo-text">mod<span class="highlight">Interactive</span></span>
-                    <p class="footer-desc">AI-Powered Kiosk System for Raspberry Pi 5</p>
+                    <p class="footer-desc">Interactive Kiosk & Digital Signage System for Raspberry Pi 5</p>
                 </div>
                 <div class="footer-links">
-                    <h4>Links</h4>
-                    <a href="https://github.com/WeAreTheArtMakers/modInteractive" target="_blank">GitHub</a>
+                    <h4>Product</h4>
                     <a href="#features">Features</a>
                     <a href="#specs">Tech Specs</a>
-                    <a href="#install">Installation</a>
+                    <a href="#system">System</a>
                 </div>
                 <div class="footer-links">
-                    <h4>Tech Stack</h4>
-                    <span>Python 3.11</span>
-                    <span>PySide6</span>
-                    <span>YOLOv8n</span>
-                    <span>OpenCV · mpv</span>
+                    <h4>Core Capabilities</h4>
+                    <span>PIR Motion Detection</span>
+                    <span>Optional Camera Detection</span>
+                    <span>Fullscreen Media Playback</span>
+                    <span>Remote Admin Panel</span>
                 </div>
             </div>
             <div class="footer-bottom">
                 <p>
-                    Built with
-                    <span class="heart">❤️</span>
-                    by
-                    <a href="https://WeAreTheArtMakers.com" target="_blank" class="footer-signature">WATAM</a>
+                    Built with <span class="heart">❤️</span> by
+                    <a href="https://wearetheartmakers.com" target="_blank" rel="noopener" class="footer-signature">WATAM</a>
                 </p>
             </div>
         </div>
