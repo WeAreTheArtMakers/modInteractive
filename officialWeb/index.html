@@ -1,288 +1,208 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>modInteractive - Interactive Kiosk System</title>
-    <meta name="description" content="Raspberry Pi 5 based interactive kiosk and digital signage system with PIR motion triggering, optional camera detection, fullscreen video playback and remote administration.">
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#070912">
+  <title>modInteractive — Interactive Kiosk System</title>
+  <meta name="description" content="Raspberry Pi 5 based interactive kiosk and digital signage system with PIR motion triggering, optional camera detection, fullscreen video playback and remote administration.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◆</text></svg>">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <nav class="nav">
-        <div class="nav-container">
-            <div class="nav-logo">
-                <span class="logo-icon">◆</span>
-                <span class="logo-text">mod<span class="highlight">Interactive</span></span>
-            </div>
-            <div class="nav-links">
-                <a href="#features">Features</a>
-                <a href="#specs">Tech Specs</a>
-                <a href="#system">System</a>
-                <a href="https://wearetheartmakers.com" target="_blank" rel="noopener" class="nav-cta">WATAM →</a>
-            </div>
-            <button class="mobile-menu" onclick="toggleMenu()" aria-label="Menu">
-                <span></span><span></span><span></span>
-            </button>
-        </div>
-    </nav>
+  <div class="page-progress" aria-hidden="true"><span></span></div>
+  <div class="ambient ambient-a" aria-hidden="true"></div>
+  <div class="ambient ambient-b" aria-hidden="true"></div>
+  <div class="grid-field" aria-hidden="true"></div>
 
-    <section class="hero">
-        <div class="hero-bg"></div>
-        <div class="hero-content">
-            <div class="hero-badge">Raspberry Pi 5 · Interactive Display System</div>
-            <h1 class="hero-title">
-                Turn Any Screen Into<br>
-                an <span class="gradient-text">Interactive Experience</span>
-            </h1>
-            <p class="hero-subtitle">
-                modInteractive is a private WATAM software system for Raspberry Pi 5. PIR motion detection is the default trigger; optional camera motion detection is built into the software and can be enabled when required.
-            </p>
-            <div class="hero-actions">
-                <a href="#features" class="btn btn-primary">
-                    <span class="btn-icon">⚡</span>
-                    Explore Features
-                </a>
-                <a href="#system" class="btn btn-secondary">
-                    <span class="btn-icon">◆</span>
-                    System Overview
-                </a>
-            </div>
-            <div class="hero-stats">
-                <div class="stat">
-                    <span class="stat-value">PIR</span>
-                    <span class="stat-label">Default Trigger</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-value">2</span>
-                    <span class="stat-label">Trigger Modes</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-value">1080p+</span>
-                    <span class="stat-label">HDMI Output</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-value">24/7</span>
-                    <span class="stat-label">Kiosk Ready</span>
-                </div>
-            </div>
+  <header class="nav" id="top">
+    <div class="nav-shell">
+      <a class="brand" href="#top" aria-label="modInteractive home">
+        <span class="brand-mark">◆</span>
+        <span class="brand-text">mod<span>Interactive</span></span>
+      </a>
+
+      <nav class="nav-links" id="navLinks" aria-label="Primary navigation">
+        <a href="#features">Features</a>
+        <a href="#specs">Tech Specs</a>
+        <a href="#system">System</a>
+        <a href="https://wearetheartmakers.com" target="_blank" rel="noopener" class="nav-cta">WATAM ↗</a>
+      </nav>
+
+      <button class="mobile-menu" id="mobileMenu" type="button" aria-label="Open menu" aria-controls="navLinks" aria-expanded="false">
+        <span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero section-shell">
+      <div class="hero-copy" data-reveal>
+        <div class="eyebrow"><span class="pulse-dot"></span> Raspberry Pi 5 · Interactive Display System</div>
+        <h1>Turn any screen into an <span class="gradient-text">interactive experience.</span></h1>
+        <p class="hero-lead">modInteractive is a private WATAM software system for Raspberry Pi 5. PIR motion detection is the default trigger; optional camera motion detection is built into the software and can be enabled when required.</p>
+
+        <div class="hero-actions">
+          <a class="button button-primary magnetic" href="#features"><span>Explore Features</span><span aria-hidden="true">↘</span></a>
+          <a class="button button-ghost magnetic" href="#system"><span>System Overview</span><span aria-hidden="true">◆</span></a>
         </div>
-        <div class="hero-visual">
-            <div class="video-circle">
-                <video id="heroVideo" class="hero-video" autoplay muted loop playsinline preload="auto">
-                    <source src="selamlama.mp4" type="video/mp4">
-                </video>
-                <div class="video-overlay"></div>
-                <button class="video-mute-toggle" id="muteToggle" onclick="toggleMute()" aria-label="Toggle sound">🔇</button>
-            </div>
-            <div class="floating-card card-1">
-                <span class="card-icon">📡</span>
-                <span>PIR<br>Detection</span>
-            </div>
-            <div class="floating-card card-2">
-                <span class="card-icon">📷</span>
-                <span>Optional Camera<br>Detection</span>
-            </div>
-            <div class="floating-card card-3">
-                <span class="card-icon">🎬</span>
-                <span>Fullscreen<br>Playback</span>
-            </div>
+
+        <div class="hero-metrics" aria-label="System highlights">
+          <div class="metric"><strong>PIR</strong><span>Default trigger</span></div>
+          <div class="metric"><strong>2</strong><span>Trigger modes</span></div>
+          <div class="metric"><strong>1080p+</strong><span>HDMI output</span></div>
+          <div class="metric"><strong>24/7</strong><span>Kiosk ready</span></div>
         </div>
+      </div>
+
+      <div class="hero-stage-wrap" data-reveal>
+        <div class="stage-aura" aria-hidden="true"></div>
+        <div class="hero-stage" id="heroStage">
+          <div class="orbit orbit-a" aria-hidden="true"></div>
+          <div class="orbit orbit-b" aria-hidden="true"></div>
+
+          <div class="video-panel" id="videoPanel">
+            <div class="video-toolbar">
+              <span class="live-pill"><span></span> Live interaction</span>
+              <span class="video-label">modInteractive / demo</span>
+            </div>
+            <video id="heroVideo" class="hero-video" autoplay muted loop playsinline preload="metadata">
+              <source src="selamlama.mp4" type="video/mp4">
+            </video>
+            <div class="video-shade" aria-hidden="true"></div>
+            <div class="video-footer">
+              <div><small>Trigger source</small><strong>PIR sensor</strong></div>
+              <button class="video-control" id="muteToggle" type="button" aria-label="Unmute video">🔇</button>
+            </div>
+          </div>
+
+          <div class="capability-dock" aria-label="Core capabilities">
+            <div class="capability cap-a" data-depth="1.1"><span class="cap-icon">📡</span><span><strong>PIR</strong><small>Detection</small></span></div>
+            <div class="capability cap-b" data-depth="0.8"><span class="cap-icon">📷</span><span><strong>Optional Camera</strong><small>Detection</small></span></div>
+            <div class="capability cap-c" data-depth="1.25"><span class="cap-icon">🎬</span><span><strong>Fullscreen</strong><small>Playback</small></span></div>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <section class="use-case">
-        <div class="container">
-            <div class="use-case-flow">
-                <div class="flow-step">
-                    <div class="step-number">1</div>
-                    <div class="step-icon">🚶</div>
-                    <h3>Motion Occurs</h3>
-                    <p>PIR sensor detects movement</p>
-                </div>
-                <div class="flow-arrow">→</div>
-                <div class="flow-step">
-                    <div class="step-number">2</div>
-                    <div class="step-icon">📡</div>
-                    <h3>Trigger</h3>
-                    <p>System receives the motion event</p>
-                </div>
-                <div class="flow-arrow">→</div>
-                <div class="flow-step">
-                    <div class="step-number">3</div>
-                    <div class="step-icon">▶️</div>
-                    <h3>Video Plays</h3>
-                    <p>Selected media opens fullscreen</p>
-                </div>
-                <div class="flow-arrow">→</div>
-                <div class="flow-step">
-                    <div class="step-number">4</div>
-                    <div class="step-icon">⏳</div>
-                    <h3>Ready Again</h3>
-                    <p>Cooldown ends and motion monitoring resumes</p>
-                </div>
-            </div>
-        </div>
+    <section class="signal section-shell" aria-labelledby="signalTitle">
+      <div class="section-heading" data-reveal>
+        <div class="eyebrow">Interaction flow</div>
+        <h2 id="signalTitle">The screen responds when the space comes alive.</h2>
+        <p>Motion becomes a trigger, the trigger becomes content, and the installation returns to ready state automatically.</p>
+      </div>
+
+      <div class="signal-line" data-reveal>
+        <article class="signal-step"><span>01</span><div class="signal-icon">🚶</div><h3>Motion Occurs</h3><p>PIR sensor detects movement</p></article>
+        <article class="signal-step"><span>02</span><div class="signal-icon">📡</div><h3>Trigger</h3><p>System receives the motion event</p></article>
+        <article class="signal-step"><span>03</span><div class="signal-icon">▶</div><h3>Video Plays</h3><p>Selected media opens fullscreen</p></article>
+        <article class="signal-step"><span>04</span><div class="signal-icon">◌</div><h3>Ready Again</h3><p>Cooldown ends and monitoring resumes</p></article>
+      </div>
     </section>
 
-    <section class="features" id="features">
-        <div class="container">
-            <h2 class="section-title">Designed for Interactive Displays</h2>
-            <p class="section-subtitle">A dedicated Raspberry Pi 5 kiosk platform for exhibitions, retail, installations and digital signage</p>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">📡</div>
-                    <h3>PIR Motion Trigger</h3>
-                    <p>GPIO-based motion triggering is the default operating mode, designed for reliable and low-overhead interaction.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">📷</div>
-                    <h3>Optional Camera Mode</h3>
-                    <p>Camera/OpenCV motion detection is already integrated in the software and can be enabled without changing the core system.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🎬</div>
-                    <h3>Fullscreen Media Playback</h3>
-                    <p>HDMI-connected displays can automatically play configured video content in fullscreen when motion is detected.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">📱</div>
-                    <h3>Remote Admin Panel</h3>
-                    <p>Trigger source, video path, audio level, cooldown and detection settings can be managed from a phone, tablet or computer on the same network.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">⚙️</div>
-                    <h3>Automatic Startup</h3>
-                    <p>The system is designed to start automatically with the Raspberry Pi and return to motion monitoring without manual intervention.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🛡️</div>
-                    <h3>Private Software</h3>
-                    <p>The application source code remains private. This public page presents the product and its capabilities without exposing the implementation.</p>
-                </div>
-            </div>
-        </div>
+    <section class="features section-shell" id="features">
+      <div class="section-heading" data-reveal>
+        <div class="eyebrow">Designed for interactive displays</div>
+        <h2>A private software layer that turns a passive screen into a responsive installation.</h2>
+        <p>A dedicated Raspberry Pi 5 kiosk platform for exhibitions, retail, installations and digital signage.</p>
+      </div>
+
+      <div class="bento" data-reveal>
+        <article class="feature-card feature-wide accent-blue">
+          <div class="feature-top"><span class="feature-icon">📡</span><span class="feature-index">01</span></div>
+          <h3>PIR Motion Trigger</h3>
+          <p>GPIO-based motion triggering is the default operating mode, designed for reliable and low-overhead interaction.</p>
+          <div class="mini-visual sensor-visual" aria-hidden="true"><span></span><span></span><span></span></div>
+        </article>
+
+        <article class="feature-card accent-violet">
+          <div class="feature-top"><span class="feature-icon">📷</span><span class="feature-index">02</span></div>
+          <h3>Optional Camera Mode</h3>
+          <p>Camera/OpenCV motion detection is already integrated and can be enabled without changing the core system.</p>
+        </article>
+
+        <article class="feature-card accent-cyan">
+          <div class="feature-top"><span class="feature-icon">🎬</span><span class="feature-index">03</span></div>
+          <h3>Fullscreen Media Playback</h3>
+          <p>HDMI-connected displays automatically play configured video content in fullscreen when motion is detected.</p>
+        </article>
+
+        <article class="feature-card accent-green">
+          <div class="feature-top"><span class="feature-icon">📱</span><span class="feature-index">04</span></div>
+          <h3>Remote Admin Panel</h3>
+          <p>Trigger source, video path, audio level, cooldown and detection settings can be managed from the same network.</p>
+        </article>
+
+        <article class="feature-card accent-amber">
+          <div class="feature-top"><span class="feature-icon">⚙️</span><span class="feature-index">05</span></div>
+          <h3>Automatic Startup</h3>
+          <p>The system starts automatically with Raspberry Pi and returns to motion monitoring without manual intervention.</p>
+        </article>
+
+        <article class="feature-card feature-wide accent-pink">
+          <div class="feature-top"><span class="feature-icon">🛡️</span><span class="feature-index">06</span></div>
+          <h3>Private Software</h3>
+          <p>The application source code remains private. This public page presents the product and its capabilities without exposing the implementation.</p>
+          <div class="code-mask" aria-hidden="true"><span>private/system</span><span>••••••••••••••••</span><span>protected runtime</span></div>
+        </article>
+      </div>
     </section>
 
     <section class="specs" id="specs">
-        <div class="container">
-            <h2 class="section-title">Technical Specifications</h2>
-            <div class="specs-grid">
-                <div class="spec-card">
-                    <h3>Hardware</h3>
-                    <ul>
-                        <li><strong>Board:</strong> Raspberry Pi 5</li>
-                        <li><strong>Trigger:</strong> PIR GPIO sensor</li>
-                        <li><strong>Display:</strong> HDMI screen / TV / monitor</li>
-                        <li><strong>Camera:</strong> Optional USB or Pi Camera</li>
-                    </ul>
-                </div>
-                <div class="spec-card">
-                    <h3>Software</h3>
-                    <ul>
-                        <li><strong>OS:</strong> Raspberry Pi OS</li>
-                        <li><strong>Playback:</strong> mpv fullscreen</li>
-                        <li><strong>Admin:</strong> Local web interface</li>
-                        <li><strong>Camera mode:</strong> OpenCV based</li>
-                    </ul>
-                </div>
-                <div class="spec-card">
-                    <h3>Operation</h3>
-                    <ul>
-                        <li><strong>Startup:</strong> Automatic service launch</li>
-                        <li><strong>Default source:</strong> PIR</li>
-                        <li><strong>Alternative source:</strong> Camera</li>
-                        <li><strong>Playback:</strong> Configurable media file</li>
-                    </ul>
-                </div>
-                <div class="spec-card">
-                    <h3>Control</h3>
-                    <ul>
-                        <li><strong>Trigger:</strong> Select PIR or camera</li>
-                        <li><strong>Video:</strong> Path and volume control</li>
-                        <li><strong>Motion:</strong> Cooldown and sensitivity</li>
-                        <li><strong>Status:</strong> System state and logs</li>
-                    </ul>
-                </div>
-            </div>
+      <div class="section-shell">
+        <div class="section-heading" data-reveal>
+          <div class="eyebrow">Technical specifications</div>
+          <h2>Built for practical installations, not demo-only prototypes.</h2>
         </div>
+
+        <div class="spec-grid" data-reveal>
+          <article class="spec-card"><div class="spec-head"><span>Hardware</span><b>01</b></div><ul><li><span>Board</span><strong>Raspberry Pi 5</strong></li><li><span>Trigger</span><strong>PIR GPIO sensor</strong></li><li><span>Display</span><strong>HDMI screen / TV / monitor</strong></li><li><span>Camera</span><strong>Optional USB or Pi Camera</strong></li></ul></article>
+          <article class="spec-card"><div class="spec-head"><span>Software</span><b>02</b></div><ul><li><span>OS</span><strong>Raspberry Pi OS</strong></li><li><span>Playback</span><strong>mpv fullscreen</strong></li><li><span>Admin</span><strong>Local web interface</strong></li><li><span>Camera mode</span><strong>OpenCV based</strong></li></ul></article>
+          <article class="spec-card"><div class="spec-head"><span>Operation</span><b>03</b></div><ul><li><span>Startup</span><strong>Automatic service launch</strong></li><li><span>Default source</span><strong>PIR</strong></li><li><span>Alternative source</span><strong>Camera</strong></li><li><span>Playback</span><strong>Configurable media file</strong></li></ul></article>
+          <article class="spec-card"><div class="spec-head"><span>Control</span><b>04</b></div><ul><li><span>Trigger</span><strong>Select PIR or camera</strong></li><li><span>Video</span><strong>Path and volume control</strong></li><li><span>Motion</span><strong>Cooldown and sensitivity</strong></li><li><span>Status</span><strong>System state and logs</strong></li></ul></article>
+        </div>
+      </div>
     </section>
 
-    <section class="install" id="system">
-        <div class="container">
-            <h2 class="section-title">System Delivery</h2>
-            <p class="section-subtitle">modInteractive is delivered as a configured private software solution rather than a public source-code package.</p>
-            <div class="install-steps">
-                <div class="install-step">
-                    <div class="step-header">
-                        <span class="step-badge">1</span>
-                        <h3>Raspberry Pi 5 Platform</h3>
-                    </div>
-                    <p class="step-desc">The application runs locally on Raspberry Pi 5 and controls motion-triggered fullscreen content playback.</p>
-                </div>
-                <div class="install-step">
-                    <div class="step-header">
-                        <span class="step-badge">2</span>
-                        <h3>PIR by Default</h3>
-                    </div>
-                    <p class="step-desc">The standard system uses a PIR sensor. Camera hardware is optional; camera detection support remains included in the software.</p>
-                </div>
-                <div class="install-step">
-                    <div class="step-header">
-                        <span class="step-badge">3</span>
-                        <h3>Remote Configuration</h3>
-                    </div>
-                    <p class="step-desc">Operational settings can be adjusted from the built-in local admin panel without exposing application source code.</p>
-                </div>
-            </div>
-            <div class="install-note">
-                <span class="note-icon">◆</span>
-                <p>Source code is not distributed through this public presentation site.</p>
-            </div>
-        </div>
+    <section class="system section-shell" id="system">
+      <div class="section-heading" data-reveal>
+        <div class="eyebrow">System delivery</div>
+        <h2>Configured as a complete private installation.</h2>
+        <p>modInteractive is delivered as a configured private software solution rather than a public source-code package.</p>
+      </div>
+
+      <div class="system-rail" data-reveal>
+        <article><div class="rail-num">01</div><div><h3>Raspberry Pi 5 Platform</h3><p>The application runs locally on Raspberry Pi 5 and controls motion-triggered fullscreen content playback.</p></div></article>
+        <article><div class="rail-num">02</div><div><h3>PIR by Default</h3><p>The standard system uses a PIR sensor. Camera hardware is optional; camera detection support remains included in the software.</p></div></article>
+        <article><div class="rail-num">03</div><div><h3>Remote Configuration</h3><p>Operational settings can be adjusted from the built-in local admin panel without exposing application source code.</p></div></article>
+      </div>
+
+      <div class="private-note" data-reveal><span>◆</span><p>Source code is not distributed through this public presentation site.</p></div>
     </section>
 
-    <section class="cta">
-        <div class="container">
-            <h2>modInteractive</h2>
-            <p>Private interactive kiosk software developed by WATAM for Raspberry Pi 5 based installations.</p>
-            <a href="https://wearetheartmakers.com" target="_blank" rel="noopener" class="btn btn-primary btn-large">
-                <span class="btn-icon">◆</span>
-                WATAM
-            </a>
-        </div>
+    <section class="cta section-shell" data-reveal>
+      <div class="cta-card">
+        <div class="cta-orb" aria-hidden="true"></div>
+        <div class="eyebrow">modInteractive by WATAM</div>
+        <h2>Make the screen part of the space.</h2>
+        <p>Private interactive kiosk software developed for Raspberry Pi 5 based installations.</p>
+        <a class="button button-primary magnetic" href="https://wearetheartmakers.com" target="_blank" rel="noopener"><span>Visit WATAM</span><span>↗</span></a>
+      </div>
     </section>
+  </main>
 
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <span class="logo-icon">◆</span>
-                    <span class="logo-text">mod<span class="highlight">Interactive</span></span>
-                    <p class="footer-desc">Interactive Kiosk & Digital Signage System for Raspberry Pi 5</p>
-                </div>
-                <div class="footer-links">
-                    <h4>Product</h4>
-                    <a href="#features">Features</a>
-                    <a href="#specs">Tech Specs</a>
-                    <a href="#system">System</a>
-                </div>
-                <div class="footer-links">
-                    <h4>Core Capabilities</h4>
-                    <span>PIR Motion Detection</span>
-                    <span>Optional Camera Detection</span>
-                    <span>Fullscreen Media Playback</span>
-                    <span>Remote Admin Panel</span>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>
-                    Built with <span class="heart">❤️</span> by
-                    <a href="https://wearetheartmakers.com" target="_blank" rel="noopener" class="footer-signature">WATAM</a>
-                </p>
-            </div>
-        </div>
-    </footer>
+  <footer class="footer section-shell">
+    <div class="footer-main">
+      <div><a class="brand" href="#top"><span class="brand-mark">◆</span><span class="brand-text">mod<span>Interactive</span></span></a><p>Interactive Kiosk & Digital Signage System for Raspberry Pi 5</p></div>
+      <div class="footer-links"><strong>Product</strong><a href="#features">Features</a><a href="#specs">Tech Specs</a><a href="#system">System</a></div>
+      <div class="footer-links"><strong>Core capabilities</strong><span>PIR Motion Detection</span><span>Optional Camera Detection</span><span>Fullscreen Media Playback</span><span>Remote Admin Panel</span></div>
+    </div>
+    <div class="footer-bottom"><span>Built with ❤️ by <a href="https://wearetheartmakers.com" target="_blank" rel="noopener">WATAM</a></span><span>Private software · Public experience</span></div>
+  </footer>
 
-    <script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
